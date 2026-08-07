@@ -1,0 +1,60 @@
+CREATE TABLE IF NOT EXISTS companies (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(180) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS branches (
+  id BIGSERIAL PRIMARY KEY,
+  company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name VARCHAR(180) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TYPE routine_status AS ENUM ('PENDENTE','EM_ANDAMENTO','CONCLUIDA','ATRASADA','REJEITADA');
+CREATE TYPE occurrence_status AS ENUM ('ABERTA','EM_ATENDIMENTO','AGUARDANDO_VALIDACAO','ENCERRADA','REJEITADA');
+
+CREATE TABLE IF NOT EXISTS routine_templates (
+  id BIGSERIAL PRIMARY KEY,
+  company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  branch_id BIGINT REFERENCES branches(id) ON DELETE SET NULL,
+  title VARCHAR(180) NOT NULL,
+  recurrence_rule VARCHAR(120) NOT NULL,
+  requires_photo BOOLEAN NOT NULL DEFAULT FALSE,
+  requires_comment BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS routine_runs (
+  id BIGSERIAL PRIMARY KEY,
+  template_id BIGINT NOT NULL REFERENCES routine_templates(id) ON DELETE CASCADE,
+  status routine_status NOT NULL DEFAULT 'PENDENTE',
+  scheduled_for TIMESTAMPTZ NOT NULL,
+  due_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS occurrences (
+  id BIGSERIAL PRIMARY KEY,
+  company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  branch_id BIGINT REFERENCES branches(id) ON DELETE SET NULL,
+  title VARCHAR(180) NOT NULL,
+  description TEXT NOT NULL,
+  status occurrence_status NOT NULL DEFAULT 'ABERTA',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGSERIAL PRIMARY KEY,
+  recipient_user_id UUID NOT NULL,
+  actor_user_id UUID NOT NULL,
+  entity_type VARCHAR(30) NOT NULL,
+  entity_id BIGINT NOT NULL,
+  title VARCHAR(180) NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_routine_runs_status_due ON routine_runs(status, due_at);
+CREATE INDEX IF NOT EXISTS ix_occurrences_status_updated ON occurrences(status, updated_at DESC);

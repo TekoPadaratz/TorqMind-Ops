@@ -1,0 +1,21 @@
+---
+description: Google Drive com conta pessoal via OAuth (Meu Drive / Google One)
+globs: backend/**/storage/**,scripts/gdrive*.sh,secrets/**,docker-compose.yml,.env*
+alwaysApply: false
+---
+
+# Google Drive (conta pessoal)
+
+Pasta: `GDRIVE_ROOT_FOLDER_ID=1Ab-fynAW0c7Cpx-zjXUIE2xvNCVpWEC9`
+
+Conta de serviço **não escreve** em Meu Drive (sem cota).
+Usar OAuth do dono do Drive:
+
+1. `secrets/gdrive-oauth-client.json` (cliente Desktop do GCP)
+2. `./scripts/gdrive-oauth-setup.sh` → gera `gdrive-oauth-token.json`
+3. Env: `STORAGE_PROVIDER=gdrive` + `GDRIVE_OAUTH_TOKEN_FILE=/app/secrets/gdrive-oauth-token.json`
+
+Log esperado: `Google Drive storage ativo (modo=oauth)`.
+
+Rebuild só `torqmind-ops-saas` backend.
+---

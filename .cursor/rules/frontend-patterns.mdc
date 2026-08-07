@@ -1,0 +1,30 @@
+---
+description: Padrões do frontend React (páginas, API, UI)
+globs: frontend/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# Frontend — padrões
+
+## Estrutura
+
+- Páginas em `src/pages/`; componentes reutilizáveis em `src/components/`
+- API: `apiGet` / `apiPost` / `apiDelete` / `apiUpload` / `apiBlob` em `api.ts`
+- Auth JWT em `localStorage` (`torqmind.token`); headers via `authHeaders()`
+
+## UI
+
+- Layout: `div.page` → `section.card` → `form.stack`
+- Labels: `label.field-label`; checkboxes: `label.check`
+- Filtros: `filter-row` + `filter-chip`
+- Upload: padrão do `Thread` — botões `btn-ghost` + inputs `hidden` (foto com `capture="environment"`, arquivo `image/*,application/pdf`)
+- Labels e mensagens em PT-BR
+
+## Convenções
+
+- Estado local com `useState`; sem store global além de `auth`
+- Após create/update, limpar form e `reload()`
+- Detalhe de tarefa reutiliza `Thread` (comentários + anexos + atividades)
+- Estilos em `styles.css` com CSS variables do tema (`--accent`, `--muted`, etc.)
+---
+

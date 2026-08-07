@@ -1,0 +1,29 @@
+---
+description: Multi-tenant empresa/filial e papéis em português
+alwaysApply: true
+---
+
+# Multi-tenant e papéis
+
+## Hierarquia
+
+- Empresa (`companies`) → Filiais (`branches`) → Setores / usuários
+- JWT carrega `companyId` e `branchId` (`cid`/`bid`)
+
+## Papéis (código → rótulo PT)
+
+| Código | Tela | Escopo |
+|--------|------|--------|
+| MASTER | Administrador | Menu Gestão; cadastros globais (só ~2 usuários) |
+| OWNER | Dono da empresa | Vê todas as filiais da empresa |
+| MANAGER | Gerente | Só a própria filial |
+| OPERATOR | Funcionário | Só a própria filial |
+
+## Regras
+
+- Menu **Gestão** e `/api/admin/**` → **somente MASTER**
+- Listagens usam empresa do JWT; gerente/funcionário filtram por filial
+- Criação de rotina/ocorrência: gerente força `branchId` do usuário
+- Alvos MANAGERS/ALL/SECTOR respeitam company (+ branch do template)
+- Nav inferior autoajusta colunas (3 ou 4 itens)
+---

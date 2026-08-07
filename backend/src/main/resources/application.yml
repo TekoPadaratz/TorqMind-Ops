@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: torqmind-ops-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/torqmind_ops}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 20MB
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-production}
+    issuer: torqmind-ops
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:720}
+  storage:
+    provider: ${STORAGE_PROVIDER:local}
+    local-root: ${STORAGE_LOCAL_ROOT:/app/storage}
+    gdrive:
+      root-folder-id: ${GDRIVE_ROOT_FOLDER_ID:1Ab-fynAW0c7Cpx-zjXUIE2xvNCVpWEC9}
+      oauth-token-file: ${GDRIVE_OAUTH_TOKEN_FILE:}
+      credentials-file: ${GDRIVE_CREDENTIALS_FILE:}
+      credentials-json: ${GDRIVE_CREDENTIALS_JSON:}
+
+logging:
+  level:
+    root: INFO
+    com.torqmind.ops: INFO

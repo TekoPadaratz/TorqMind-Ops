@@ -1,0 +1,15 @@
+---
+description: Convenções de migração Flyway e evolução de schema
+globs: backend/src/main/resources/db/migration/**/*.sql
+alwaysApply: false
+---
+
+# Flyway
+
+- Arquivos: `V{n}__descricao_snake.sql` em `db/migration/`
+- JPA `ddl-auto: none` — nunca alterar schema só na entidade
+- Preferir `ALTER TABLE ... ADD COLUMN` com default seguro
+- Comentários SQL curtos só quando a regra de negócio não for óbvia
+- Após nova coluna: atualizar entidade JPA + DTO/controller + UI se exposta
+---
+

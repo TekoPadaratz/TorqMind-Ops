@@ -1,0 +1,46 @@
+---
+description: Padrões do backend Spring Boot (camadas, API, domínio)
+globs: backend/**/*.java
+alwaysApply: false
+---
+
+# Backend — padrões
+
+## Camadas
+
+```
+interfaces/rest  → controllers finos, records como DTOs
+application      → @Service @Transactional, regras de negócio
+domain           → entidades JPA, enums, StatusRules (sem Lombok)
+infrastructure   → repos, JWT, storage, scheduler
+shared/api       → ApiErrorHandler, exceções
+```
+
+## API
+
+- Prefixo `/api/...`
+- Validação: `@NotBlank` + `IllegalArgumentException` → HTTP 422 `{ error, message }`
+- Auth: `@AuthenticationPrincipal AppUserPrincipal` + `@PreAuthorize` quando admin
+- Upload: multipart field `file` → `TaskDetailService.addAttachment`
+
+## Entidades
+
+- Getters/setters manuais (sem Lombok)
+- Anexos polimórficos: `task_type` + `task_id` (`ROUTINE_RUN` | `OCCURRENCE`)
+
+## Rotinas
+
+- Recorrência: `ONCE | DAILY | WEEKLY | MONTHLY | CUSTOM`
+- `CUSTOM`: dias do mês em `custom_days` (CSV `1,15,28`)
+- `business_days_only`: em `MONTHLY`/`CUSTOM`, se cair em sáb/dom **ou feriado nacional BR**, adia para o próximo dia útil
+- Feriados: só nacionais (`BrazilianNationalHolidays`) — sem municipais
+- Dia de execução: `RoutineService.isRunDay`
+- Geração: `RoutineScheduler` (tick ~1 min) + `generateDueRuns`
+- Storage: `StorageProvider` local ou Google Drive (`app.storage.provider`)
+
+## Ocorrências
+
+- Abertura: `OccurrenceService.open` → status `ABERTA`
+- Anexos após create: `POST /api/occurrences/{id}/attachments`
+---
+

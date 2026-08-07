@@ -1,0 +1,47 @@
+---
+description: Visão geral do TorqMind Ops SaaS — stack, módulos e regras críticas
+alwaysApply: true
+---
+
+# TorqMind Ops SaaS
+
+Fundação SaaS para gestão operacional de redes de postos de combustível.
+
+## Stack
+
+- Backend: Java 21 + Spring Boot 3 + Flyway + PostgreSQL (`backend/`)
+- Frontend: React + Vite + TypeScript + PWA (`frontend/`)
+- Infra: Docker Compose + Nginx (`deploy/`, porta host 88)
+
+## Módulos
+
+- **Rotinas**: status `PENDENTE | EM_ANDAMENTO | CONCLUIDA | ATRASADA | REJEITADA`
+- **Ocorrências**: status `ABERTA | EM_ATENDIMENTO | AGUARDANDO_VALIDACAO | ENCERRADA | REJEITADA`
+
+## Regras críticas (não violar)
+
+1. Multi-tenant por `company_id` / `branch_id`
+2. Notificação sem auto-retorno (`notifyCounterpart` — nunca notificar o actor)
+3. Arquivos via `StorageProvider` (não gravar path absoluto de negócio)
+4. Transições de status só via `StatusRules`
+5. Schema só por Flyway (`ddl-auto: none`); próxima migração = `V{n+1}__*.sql`
+6. Timezone de agenda: `America/Sao_Paulo`
+
+## Docker / servidor compartilhado (crítico)
+
+Este host roda **vários** produtos TorqMind (cada um com porta, API e Nginx próprios).
+O Ops SaaS usa o `docker-compose.yml` **deste** repositório (`torqmind-ops-saas`), tipicamente porta host **88**.
+
+- Sempre executar compose **dentro** de `/home/tm/torqmind-ops-saas` (ou `-f` apontando só este arquivo)
+- Preferir `docker compose up --build -d` / `docker compose build <serviço>` **só** dos serviços deste projeto
+- **Nunca** usar `docker compose down` sem `-p`/contexto deste projeto de forma que derrube outros stacks
+- **Nunca** `docker stop/rm` em containers de outros projetos TorqMind
+- Antes de subir: conferir `docker compose ps` / porta 88 — não alterar nginx/portas de outros apps
+
+## Comunicação
+
+- Responder em português brasileiro
+- Diffs cirúrgicos; não reescrever arquivos inteiros sem necessidade
+- Não assumir nomes de colunas — inspecionar migrações/entidades
+---
+

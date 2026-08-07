@@ -1,0 +1,31 @@
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Google Drive / OAuth (nunca versionar)
+secrets/*
+!secrets/.gitkeep
+!secrets/COMO-ATIVAR-DRIVE.md
+
+# Backend
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs / temp
+*.log
+*.tmp
+.cache/
+*.tsbuildinfo

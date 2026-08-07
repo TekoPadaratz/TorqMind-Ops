@@ -1,0 +1,30 @@
+---
+description: Isolamento Docker Compose do Ops SaaS no servidor TorqMind compartilhado
+globs: docker-compose.yml,Makefile,deploy/**/*
+alwaysApply: false
+---
+
+# Docker — não derrubar outros TorqMind
+
+O servidor hospeda vários stacks TorqMind (portas/API/Nginx distintos).
+Este projeto = pasta `torqmind-ops-saas`, compose próprio, porta host **88**.
+
+## Permitido
+
+- `cd /home/tm/torqmind-ops-saas && docker compose up --build -d`
+- `docker compose build backend` / `docker compose up -d backend frontend nginx`
+- `docker compose restart backend` (só serviços deste compose)
+
+## Proibido
+
+- `docker compose down` sem estar no projeto certo (derruba só este stack se o project name for exclusivo — ainda assim preferir restart/`up -d` de serviços pontuais)
+- Parar/remover containers de outros projetos TorqMind
+- Alterar portas/nginx de outros apps
+- `docker system prune` ou comandos globais destrutivos sem pedido explícito
+
+## Antes de subir
+
+1. Confirmar cwd = `torqmind-ops-saas`
+2. `docker compose ps` deste projeto
+3. Rebuild só o que mudou (`backend`, `frontend`, etc.)
+---
