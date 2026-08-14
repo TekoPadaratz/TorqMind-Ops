@@ -62,7 +62,7 @@ Nunca use `docker compose down` neste servidor compartilhado sem `-p torqmind-op
 
 ## Voz
 
-Botão 🎤 acima da navegação. Sem `VOICE_OPENAI_API_KEY`, grave **ou digite** o comando (provider `deterministic`). Com a chave, STT Whisper + interpretação JSON. Nenhuma ação mutável sem confirmar. A transcrição jamais decide permissões.
+Botão 🎤 acima da navegação. Por padrão, o próprio navegador transforma a fala em texto e o backend usa o parser `deterministic`, sem consumir créditos da OpenAI. Se o navegador não oferecer reconhecimento de fala, o usuário digita o comando. OpenAI permanece como provider opcional. Nenhuma ação mutável ocorre sem confirmação e a transcrição jamais decide permissões.
 
 ## Desenvolvimento local
 

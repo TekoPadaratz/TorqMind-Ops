@@ -58,6 +58,46 @@ export type VoiceUiState =
   | 'error'
   | 'unsupported';
 
+export type BrowserSpeechRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+};
+
+export type BrowserSpeechRecognitionEvent = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      length: number;
+      [index: number]: { transcript: string };
+    };
+  };
+};
+
+type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+export function browserSpeechRecognitionConstructor(
+  scope: Record<string, unknown> = globalThis as unknown as Record<string, unknown>
+): SpeechRecognitionConstructor | null {
+  const candidate = scope.SpeechRecognition ?? scope.webkitSpeechRecognition;
+  return typeof candidate === 'function' ? candidate as SpeechRecognitionConstructor : null;
+}
+
+export function browserSpeechRecognitionSupported(
+  scope: Record<string, unknown> = globalThis as unknown as Record<string, unknown>
+): boolean {
+  return browserSpeechRecognitionConstructor(scope) !== null;
+}
+
 export function taskContextFromPath(pathname: string, title?: string): {
   currentTaskType?: string;
   currentTaskId?: number;
