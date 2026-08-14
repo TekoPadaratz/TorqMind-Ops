@@ -4,6 +4,8 @@
 set -u
 
 BASE="${BASE:-http://localhost:88}"
+MASTER_USER="${MASTER_USER:?Informe MASTER_USER}"
+MASTER_PASSWORD="${MASTER_PASSWORD:?Informe MASTER_PASSWORD}"
 RID=$(date +%s)
 MGR_USER="mgr_$RID"
 OWNER_USER="owner_$RID"
@@ -49,37 +51,30 @@ login() {
 }
 
 echo "===================== AUTH ====================="
-TEKO=$(login teko '@Crmjr105')
-[ -n "$TEKO" ] && { echo "PASS | login teko"; PASS=$((PASS+1)); } || { echo "FAIL | login teko"; FAIL=$((FAIL+1)); }
+TEKO=$(login "$MASTER_USER" "$MASTER_PASSWORD")
+[ -n "$TEKO" ] && { echo "PASS | login MASTER"; PASS=$((PASS+1)); } || { echo "FAIL | login MASTER"; FAIL=$((FAIL+1)); }
 
 echo "===================== CADASTRO (MASTER) ====================="
-req POST /api/admin/users "$TEKO" '{"username":"lucas","fullName":"Lucas","role":"MASTER","password":"TorqMind@123"}'
-if [ "$STATUS" = "200" ] || [ "$STATUS" = "409" ] || [ "$STATUS" = "422" ]; then
-  echo "PASS | criar Lucas MASTER (idempotente: HTTP $STATUS)"; PASS=$((PASS+1))
-else
-  echo "FAIL | criar Lucas MASTER -> HTTP $STATUS | $BODY"; FAIL=$((FAIL+1))
-fi
-LUCAS=$(login lucas 'TorqMind@123')
-[ -n "$LUCAS" ] && { echo "PASS | login lucas"; PASS=$((PASS+1)); } || { echo "FAIL | login lucas"; FAIL=$((FAIL+1)); }
-LUCAS_ID=""
-req GET /api/admin/users "$TEKO"
-LUCAS_ID=$(echo "$BODY" | python3 -c "import sys,json;print(next((u['id'] for u in json.load(sys.stdin) if u['username']=='lucas'),''))")
-
 req POST /api/admin/companies "$TEKO" '{"name":"Rede Teste E2E"}'
 check "MASTER cria empresa" 200 "$STATUS"
 COMPANY_ID=$(echo "$BODY" | jqget "['id']")
 
 req POST /api/admin/branches "$TEKO" "{\"companyId\":$COMPANY_ID,\"name\":\"Filial E2E\"}"
 check "MASTER cria filial" 200 "$STATUS"
+BRANCH_ID=$(echo "$BODY" | jqget "['id']")
 
 req POST /api/admin/sectors "$TEKO" "{\"companyId\":$COMPANY_ID,\"name\":\"Pista E2E\"}"
 check "MASTER cria setor" 200 "$STATUS"
 
-req POST /api/admin/users "$TEKO" "{\"username\":\"$MGR_USER\",\"fullName\":\"Gerente E2E\",\"role\":\"MANAGER\",\"password\":\"Manager@123\"}"
+req POST /api/admin/users "$TEKO" "{\"username\":\"$MGR_USER\",\"fullName\":\"Gerente E2E\",\"role\":\"MANAGER\",\"password\":\"Manager@123\",\"companyId\":$COMPANY_ID,\"branchId\":$BRANCH_ID}"
 check "MASTER cria MANAGER" 200 "$STATUS"
 
-req POST /api/admin/users "$TEKO" "{\"username\":\"$OWNER_USER\",\"fullName\":\"Dono E2E\",\"role\":\"OWNER\",\"password\":\"Owner@1234\"}"
+req POST /api/admin/users "$TEKO" "{\"username\":\"$OWNER_USER\",\"fullName\":\"Dono E2E\",\"role\":\"OWNER\",\"password\":\"Owner@1234\",\"companyId\":$COMPANY_ID}"
 check "MASTER cria OWNER" 200 "$STATUS"
+LUCAS=$(login "$OWNER_USER" 'Owner@1234')
+LUCAS_ID=""
+req GET /api/admin/users "$TEKO"
+LUCAS_ID=$(echo "$BODY" | python3 -c "import sys,json;print(next((u['id'] for u in json.load(sys.stdin) if u['username']=='$OWNER_USER'),''))")
 
 echo "===================== RBAC (MANAGER negado) ====================="
 MGR=$(login "$MGR_USER" 'Manager@123')
@@ -93,9 +88,9 @@ check "MANAGER NAO cria setor" 403 "$STATUS"
 echo "===================== RBAC (OWNER) ====================="
 OWNER=$(login "$OWNER_USER" 'Owner@1234')
 req POST /api/admin/sectors "$OWNER" "{\"companyId\":$COMPANY_ID,\"name\":\"Setor do Dono\"}"
-check "OWNER cria setor" 200 "$STATUS"
+check "OWNER NAO cria setor" 403 "$STATUS"
 req POST /api/admin/users "$OWNER" "{\"username\":\"$OPOWN_USER\",\"fullName\":\"Operador\",\"role\":\"OPERATOR\",\"password\":\"Oper@1234\"}"
-check "OWNER cria OPERATOR" 200 "$STATUS"
+check "OWNER NAO cria OPERATOR" 403 "$STATUS"
 req POST /api/admin/companies "$OWNER" '{"name":"Owner Co"}'
 check "OWNER NAO cria empresa" 403 "$STATUS"
 req POST /api/admin/branches "$OWNER" "{\"companyId\":$COMPANY_ID,\"name\":\"F\"}"
@@ -215,5 +210,9 @@ check "MANAGER NAO exclui template -> 403" 403 "$STATUS"
 
 echo "==================================================="
 echo "RESULTADO: PASS=$PASS FAIL=$FAIL"
-[ "$FAIL" -eq 0 ] && echo "STATUS FINAL: OK" || echo "STATUS FINAL: FALHAS DETECTADAS"
-exit 0
+if [ "$FAIL" -eq 0 ]; then
+  echo "STATUS FINAL: OK"
+  exit 0
+fi
+echo "STATUS FINAL: FALHAS DETECTADAS"
+exit 1

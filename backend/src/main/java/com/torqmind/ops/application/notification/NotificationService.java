@@ -2,8 +2,11 @@ package com.torqmind.ops.application.notification;
 
 import com.torqmind.ops.application.ops.NotificationPolicy;
 import com.torqmind.ops.domain.notification.Notification;
+import com.torqmind.ops.domain.user.User;
 import com.torqmind.ops.infrastructure.persistence.NotificationRepository;
+import com.torqmind.ops.infrastructure.persistence.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -12,16 +15,43 @@ import java.util.UUID;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
-    public NotificationService(NotificationRepository notificationRepository) {
+    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
         this.notificationRepository = notificationRepository;
+        this.userRepository = userRepository;
     }
 
-    /** Cria uma notificação apenas quando o destinatário não é o próprio autor da ação. */
+    /**
+     * Notifica o destinatário (se não for o autor) e, para testes/visibilidade,
+     * também replica para todos os Administradores (MASTER) ativos.
+     */
+    @Transactional
     public void notifyCounterpart(UUID actor, UUID recipient, String entityType, Long entityId, String title, String body) {
-        if (!NotificationPolicy.shouldNotify(actor, recipient)) {
-            return;
+        if (NotificationPolicy.shouldNotify(actor, recipient)) {
+            save(actor, recipient, entityType, entityId, title, body);
         }
+        for (User master : userRepository.findByRoleIgnoreCaseAndActiveTrue("MASTER")) {
+            UUID mid = master.getId();
+            if (mid == null) {
+                continue;
+            }
+            if (recipient != null && recipient.equals(mid)) {
+                continue;
+            }
+            if (!NotificationPolicy.shouldNotify(actor, mid)) {
+                continue;
+            }
+            save(actor, mid, entityType, entityId, title, body);
+        }
+    }
+
+    @Transactional
+    public int markAllRead(UUID recipientUserId) {
+        return notificationRepository.markAllRead(recipientUserId, Instant.now());
+    }
+
+    private void save(UUID actor, UUID recipient, String entityType, Long entityId, String title, String body) {
         Notification notification = new Notification();
         notification.setActorUserId(actor);
         notification.setRecipientUserId(recipient);

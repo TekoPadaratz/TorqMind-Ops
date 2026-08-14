@@ -2,6 +2,7 @@ package com.torqmind.ops.application.task;
 
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.storage.DriveFolderService;
+import com.torqmind.ops.application.tenant.TenantAccessService;
 import com.torqmind.ops.domain.company.Branch;
 import com.torqmind.ops.domain.company.Company;
 import com.torqmind.ops.domain.occurrence.Occurrence;
@@ -20,6 +21,7 @@ import com.torqmind.ops.infrastructure.persistence.TaskActivityRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskAttachmentRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskCommentRepository;
 import com.torqmind.ops.infrastructure.persistence.UserRepository;
+import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import com.torqmind.ops.infrastructure.storage.StoragePaths;
 import com.torqmind.ops.infrastructure.storage.StorageProvider;
 import org.springframework.stereotype.Service;
@@ -39,8 +41,6 @@ import java.util.stream.Collectors;
 @Service
 public class TaskDetailService {
 
-    private static final Set<String> ALLOWED_MIME = Set.of(
-            "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf");
     private static final long MAX_BYTES = 15L * 1024 * 1024;
 
     private final RoutineRunRepository runRepository;
@@ -56,6 +56,7 @@ public class TaskDetailService {
     private final DriveFolderService driveFolderService;
     private final NotificationService notificationService;
     private final ActivityService activityService;
+    private final TenantAccessService tenantAccessService;
 
     public TaskDetailService(
             RoutineRunRepository runRepository,
@@ -70,7 +71,8 @@ public class TaskDetailService {
             StorageProvider storageProvider,
             DriveFolderService driveFolderService,
             NotificationService notificationService,
-            ActivityService activityService
+            ActivityService activityService,
+            TenantAccessService tenantAccessService
     ) {
         this.runRepository = runRepository;
         this.templateRepository = templateRepository;
@@ -85,15 +87,17 @@ public class TaskDetailService {
         this.driveFolderService = driveFolderService;
         this.notificationService = notificationService;
         this.activityService = activityService;
+        this.tenantAccessService = tenantAccessService;
     }
 
     // ---------------- Comentários ----------------
     @Transactional
-    public CommentView addComment(TaskType type, Long taskId, UUID actor, String body) {
+    public CommentView addComment(TaskType type, Long taskId, AppUserPrincipal me, String body) {
         if (body == null || body.isBlank()) {
             throw new IllegalArgumentException("Comentário não pode ser vazio.");
         }
-        ensureTaskExists(type, taskId);
+        tenantAccessService.requireTaskAccess(me, type, taskId);
+        UUID actor = me.userId();
 
         TaskComment comment = new TaskComment();
         comment.setTaskType(type.name());
@@ -111,21 +115,19 @@ public class TaskDetailService {
 
     // ---------------- Anexos ----------------
     @Transactional
-    public AttachmentView addAttachment(TaskType type, Long taskId, UUID actor, String fileName, String mimeType, byte[] content) {
-        ensureTaskExists(type, taskId);
+    public AttachmentView addAttachment(TaskType type, Long taskId, AppUserPrincipal me, String fileName, byte[] content) {
+        tenantAccessService.requireTaskAccess(me, type, taskId);
         if (content == null || content.length == 0) {
             throw new IllegalArgumentException("Arquivo vazio.");
         }
         if (content.length > MAX_BYTES) {
             throw new IllegalArgumentException("Arquivo acima do limite de 15 MB.");
         }
-        String mime = mimeType == null ? "" : mimeType.toLowerCase();
-        if (!ALLOWED_MIME.contains(mime)) {
-            throw new IllegalArgumentException("Tipo de arquivo não suportado. Envie imagem ou PDF.");
-        }
+        TaskFilePolicy.InspectedFile inspected = TaskFilePolicy.inspect(content);
+        UUID actor = me.userId();
 
         String checksum = sha256(content);
-        String ext = extensionFor(mime);
+        String ext = inspected.extension();
         String displayName = sanitizeName(fileName, ext);
         String folder = resolveStorageFolder(type, taskId);
         String storedName = StoragePaths.taskFileName(taskId, displayName, ext);
@@ -138,7 +140,7 @@ public class TaskDetailService {
         attachment.setStorageProvider(storageProvider.providerName());
         attachment.setStoragePath(path);
         attachment.setFileName(displayName);
-        attachment.setMimeType(mime);
+        attachment.setMimeType(inspected.mimeType());
         attachment.setSizeBytes(content.length);
         attachment.setChecksumSha256(checksum);
         attachment.setCreatedAt(Instant.now());
@@ -150,17 +152,15 @@ public class TaskDetailService {
         return toAttachmentView(saved, nameMap(Set.of(actor)));
     }
 
-    public AttachmentContent readAttachment(Long attachmentId) {
-        TaskAttachment attachment = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Anexo não encontrado."));
+    public AttachmentContent readAttachment(Long attachmentId, AppUserPrincipal me) {
+        TaskAttachment attachment = tenantAccessService.requireAttachmentAccess(me, attachmentId);
         byte[] bytes = storageProvider.read(attachment.getStoragePath());
         return new AttachmentContent(bytes, attachment.getMimeType(), attachment.getFileName());
     }
 
     // ---------------- Detalhe ----------------
-    public TaskDetail getRoutineRunDetail(Long runId) {
-        RoutineRun run = runRepository.findById(runId)
-                .orElseThrow(() -> new IllegalArgumentException("Execução não encontrada."));
+    public TaskDetail getRoutineRunDetail(Long runId, AppUserPrincipal me) {
+        RoutineRun run = tenantAccessService.requireRoutineRunAccess(me, runId);
         RoutineTemplate template = templateRepository.findById(run.getTemplateId()).orElse(null);
 
         Set<UUID> userIds = new HashSet<>();
@@ -198,9 +198,8 @@ public class TaskDetailService {
         );
     }
 
-    public TaskDetail getOccurrenceDetail(Long occId) {
-        Occurrence occ = occurrenceRepository.findById(occId)
-                .orElseThrow(() -> new IllegalArgumentException("Ocorrência não encontrada."));
+    public TaskDetail getOccurrenceDetail(Long occId, AppUserPrincipal me) {
+        Occurrence occ = tenantAccessService.requireOccurrenceAccess(me, occId);
 
         Set<UUID> userIds = new HashSet<>();
         if (occ.getOpenedBy() != null) userIds.add(occ.getOpenedBy());
@@ -262,13 +261,13 @@ public class TaskDetailService {
         return StoragePaths.taskKindFolder(type.name()) + "/" + taskId;
     }
 
-    private void ensureTaskExists(TaskType type, Long taskId) {
-        boolean exists = type == TaskType.ROUTINE_RUN
-                ? runRepository.existsById(taskId)
-                : occurrenceRepository.existsById(taskId);
-        if (!exists) {
-            throw new IllegalArgumentException("Tarefa não encontrada.");
-        }
+    public boolean hasImageEvidence(TaskType type, Long taskId) {
+        return attachmentRepository.findByTaskTypeAndTaskIdOrderByCreatedAt(type.name(), taskId).stream()
+                .anyMatch(a -> a.getMimeType() != null && a.getMimeType().toLowerCase().startsWith("image/"));
+    }
+
+    public boolean hasCommentEvidence(TaskType type, Long taskId) {
+        return commentRepository.countByTaskTypeAndTaskId(type.name(), taskId) > 0;
     }
 
     private void notifyParticipants(TaskType type, Long taskId, UUID actor, String title, String body) {
@@ -335,22 +334,19 @@ public class TaskDetailService {
     }
 
     private static String sanitizeName(String original, String ext) {
-        if (original == null || original.isBlank()) {
-            return "arquivo" + ext;
+        String base = original == null ? "" : original.replaceAll("[\\\\/\\r\\n\"]", "_").trim();
+        int dot = base.lastIndexOf('.');
+        if (dot > 0) {
+            base = base.substring(0, dot);
         }
-        String base = original.replaceAll("[\\\\/\\r\\n]", "_").trim();
-        return base.length() > 200 ? base.substring(0, 200) : base;
-    }
-
-    private static String extensionFor(String mime) {
-        return switch (mime) {
-            case "image/jpeg" -> ".jpg";
-            case "image/png" -> ".png";
-            case "image/webp" -> ".webp";
-            case "image/gif" -> ".gif";
-            case "application/pdf" -> ".pdf";
-            default -> "";
-        };
+        if (base.isBlank()) {
+            base = "arquivo";
+        }
+        int maxBase = Math.max(1, 200 - ext.length());
+        if (base.length() > maxBase) {
+            base = base.substring(0, maxBase);
+        }
+        return base + ext;
     }
 
     private static String sha256(byte[] content) {

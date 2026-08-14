@@ -94,4 +94,29 @@ public class TenantResolver {
     public boolean isMaster(AppUserPrincipal me) {
         return me != null && "MASTER".equals(me.role());
     }
+
+    public void assertCanAccess(AppUserPrincipal me, Long resourceCompanyId, Long resourceBranchId) {
+        if (me == null) {
+            throw new ForbiddenException("Não autenticado.");
+        }
+        assertCanAccess(me.role(), me.companyId(), me.branchId(), resourceCompanyId, resourceBranchId);
+    }
+
+    public void assertCanAccess(String role, Long userCompanyId, Long userBranchId, Long resourceCompanyId, Long resourceBranchId) {
+        if (role == null) {
+            throw new ForbiddenException("Não autenticado.");
+        }
+        if ("MASTER".equalsIgnoreCase(role)) {
+            return;
+        }
+        if (userCompanyId == null || resourceCompanyId == null || !userCompanyId.equals(resourceCompanyId)) {
+            throw new ForbiddenException("Recurso fora do escopo da sua empresa.");
+        }
+        if ("OWNER".equalsIgnoreCase(role)) {
+            return;
+        }
+        if (userBranchId != null && resourceBranchId != null && !userBranchId.equals(resourceBranchId)) {
+            throw new ForbiddenException("Recurso fora do escopo da sua filial.");
+        }
+    }
 }

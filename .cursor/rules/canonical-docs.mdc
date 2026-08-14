@@ -1,0 +1,16 @@
+---
+description: Mapas canônicos do Ops — consultar antes de reler o repositório
+alwaysApply: true
+---
+
+# Docs canônicos
+
+Ler primeiro (não duplicar):
+
+- `docs/architecture/SYSTEM_MAP.md`
+- `docs/architecture/ENVIRONMENT_MAP.md`
+- `docs/product/BUSINESS_RULES.md`
+- `docs/contracts/VOICE_COMMANDS.md`
+- `docs/engineering/EXECUTION_PLAN.md`
+
+Voz reutiliza `RoutineService` / `OccurrenceService` / `TaskDetailService`. Nunca gravar direto no banco. Isolamento Docker: só compose `torqmind-ops-saas` (porta 88).

@@ -10,5 +10,8 @@ logs:
 backend-test:
 	cd backend && mvn test
 
+frontend-test:
+	cd frontend && npm test
+
 frontend-build:
 	cd frontend && npm run build

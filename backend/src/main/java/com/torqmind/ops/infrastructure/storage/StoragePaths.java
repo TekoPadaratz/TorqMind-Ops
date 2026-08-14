@@ -2,6 +2,7 @@ package com.torqmind.ops.infrastructure.storage;
 
 import java.text.Normalizer;
 import java.util.Locale;
+import java.util.UUID;
 
 public final class StoragePaths {
 
@@ -45,6 +46,7 @@ public final class StoragePaths {
         }
         base = slug(base);
         String extension = ext == null ? "" : ext;
-        return taskId + "-" + base + extension;
+        String unique = UUID.randomUUID().toString().substring(0, 8);
+        return taskId + "-" + unique + "-" + base + extension;
     }
 }

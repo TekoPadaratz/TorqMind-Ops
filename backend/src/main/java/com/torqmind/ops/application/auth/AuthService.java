@@ -67,6 +67,7 @@ public class AuthService {
         );
         return new LoginResult(
                 token,
+                user.getId(),
                 user.getUsername(),
                 user.getFullName(),
                 user.getRole(),
@@ -77,6 +78,7 @@ public class AuthService {
 
     public record LoginResult(
             String token,
+            java.util.UUID userId,
             String username,
             String fullName,
             String role,

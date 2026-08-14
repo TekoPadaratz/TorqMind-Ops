@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { apiGet } from '../api';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { apiGet, apiPost } from '../api';
 
 type Notification = {
   id: number;
@@ -7,29 +8,62 @@ type Notification = {
   body: string;
   createdAt: string;
   readAt: string | null;
+  entityType: string;
+  entityId: number;
 };
 
 export default function Notifications() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [items, setItems] = useState<Notification[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiGet('/notifications')
-      .then(setItems)
-      .catch((e) => setError(e.message));
-  }, []);
+    let active = true;
+    (async () => {
+      try {
+        const list = await apiGet('/notifications');
+        if (!active) return;
+        setItems(list);
+        await apiPost('/notifications/mark-read', {});
+        window.dispatchEvent(new Event('torqmind:notifications-read'));
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Erro ao carregar');
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [location.key]);
+
+  function openNotification(notification: Notification) {
+    if (notification.entityType === 'ROUTINE_RUN') {
+      navigate(`/routines/${notification.entityId}`);
+    } else if (notification.entityType === 'OCCURRENCE') {
+      navigate(`/occurrences/${notification.entityId}`);
+    }
+  }
 
   return (
     <div className="page">
       {error && <div className="alert-error">{error}</div>}
       <section className="card">
-        <h2>Notificações</h2>
+        <div className="card-head">
+          <h2>Avisos</h2>
+          <button type="button" className="btn-ghost" onClick={() => navigate(-1)}>
+            Fechar
+          </button>
+        </div>
         {items.length === 0 ? (
-          <p className="muted">Nenhuma notificação por aqui.</p>
+          <p className="muted">Nenhum aviso por aqui.</p>
         ) : (
           <ul className="list">
             {items.map((n) => (
-              <li key={n.id} className="run-item">
+              <li
+                key={n.id}
+                className={`run-item clickable ${n.readAt ? '' : 'notif-unread'}`}
+                onClick={() => openNotification(n)}
+              >
                 <div>
                   <strong>{n.title}</strong>
                   <div className="muted small">{n.body}</div>

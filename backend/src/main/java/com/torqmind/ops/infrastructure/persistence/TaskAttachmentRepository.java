@@ -4,8 +4,12 @@ import com.torqmind.ops.domain.task.TaskAttachment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface TaskAttachmentRepository extends JpaRepository<TaskAttachment, Long> {
     List<TaskAttachment> findByTaskTypeAndTaskIdOrderByCreatedAt(String taskType, Long taskId);
     long countByTaskTypeAndTaskId(String taskType, Long taskId);
+    long countByTaskTypeAndTaskIdAndMimeTypeStartingWith(String taskType, Long taskId, String mimeTypePrefix);
+    long countByTaskTypeAndTaskIdAndUploadedByAndMimeTypeStartingWith(
+            String taskType, Long taskId, UUID uploadedBy, String mimeTypePrefix);
 }

@@ -32,7 +32,8 @@ type Run = {
 };
 
 type Option = { id: number; name: string };
-type UserOpt = { id: string; username: string; fullName: string; role: string };
+type SectorOpt = Option & { branchId: number | null };
+type UserOpt = { id: string; username: string; fullName: string; role: string; branchId: number | null };
 
 const STATUS_LABEL: Record<string, string> = {
   PENDENTE: 'Pendente',
@@ -75,7 +76,7 @@ export default function Routines() {
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
-  const [sectors, setSectors] = useState<Option[]>([]);
+  const [sectors, setSectors] = useState<SectorOpt[]>([]);
   const [branches, setBranches] = useState<Option[]>([]);
   const [users, setUsers] = useState<UserOpt[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +99,11 @@ export default function Routines() {
   const [requiresPhoto, setRequiresPhoto] = useState(false);
   const [requiresComment, setRequiresComment] = useState(false);
   const [runStatus, setRunStatus] = useState('');
+
+  const usersForBranch = users.filter((user) => branchId === '' || user.branchId === branchId);
+  const sectorsForBranch = sectors.filter(
+    (sector) => branchId === '' || sector.branchId == null || sector.branchId === branchId
+  );
 
   function toggleCustomDay(day: number) {
     setCustomDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b)));
@@ -234,7 +240,8 @@ export default function Routines() {
       {error && <div className="alert-error">{error}</div>}
 
       <section className="card">
-        <h2>Nova tarefa</h2>
+        <details>
+          <summary className="section-summary">Nova tarefa</summary>
         <form onSubmit={createTask} className="stack">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (ex: Checklist de abertura)" required />
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição / instruções (opcional)" />
@@ -261,7 +268,11 @@ export default function Routines() {
               <label className="field-label">Filial</label>
               <select
                 value={branchId}
-                onChange={(e) => setBranchId(e.target.value === '' ? '' : Number(e.target.value))}
+                onChange={(e) => {
+                  setBranchId(e.target.value === '' ? '' : Number(e.target.value));
+                  setUserId('');
+                  setSectorId('');
+                }}
                 required
               >
                 <option value="">Selecione a filial</option>
@@ -275,7 +286,7 @@ export default function Routines() {
           {targetType === 'SECTOR' && (
             <select value={sectorId} onChange={(e) => setSectorId(e.target.value === '' ? '' : Number(e.target.value))} required>
               <option value="">Selecione o setor</option>
-              {sectors.map((s) => (
+              {sectorsForBranch.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
@@ -283,9 +294,13 @@ export default function Routines() {
           {targetType === 'USER' && (
             <select value={userId} onChange={(e) => setUserId(e.target.value)} required>
               <option value="">Selecione o usuário</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
-              ))}
+              {usersForBranch
+                .filter((u) => u.role !== 'MASTER')
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} ({u.role === 'OWNER' ? 'Dono da empresa' : u.role === 'MANAGER' ? 'Gerente' : u.role === 'OPERATOR' ? 'Funcionário' : u.role})
+                  </option>
+                ))}
             </select>
           )}
 
@@ -354,12 +369,12 @@ export default function Routines() {
           )}
 
           <div className="time-row">
-            <div>
-              <label className="field-label">Início</label>
+            <div className="field-block">
+              <label className="field-label">Horário de início</label>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
             </div>
-            <div>
-              <label className="field-label">Vencimento</label>
+            <div className="field-block">
+              <label className="field-label">Horário de vencimento</label>
               <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} required />
             </div>
           </div>
@@ -377,10 +392,12 @@ export default function Routines() {
           </label>
           <button type="submit" className="btn-primary">Criar tarefa</button>
         </form>
+        </details>
       </section>
 
       <section className="card">
-        <h2>Rotinas programadas</h2>
+        <details>
+          <summary className="section-summary">Rotinas programadas ({templates.length})</summary>
         {templates.length === 0 ? (
           <p className="muted">Nenhuma rotina programada.</p>
         ) : (
@@ -406,6 +423,7 @@ export default function Routines() {
             ))}
           </ul>
         )}
+        </details>
       </section>
 
       <section className="card">
