@@ -2,11 +2,15 @@ package com.torqmind.ops.application.occurrence;
 
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.task.ActivityService;
+import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.domain.occurrence.Occurrence;
 import com.torqmind.ops.domain.ops.OccurrenceStatus;
 import com.torqmind.ops.domain.ops.StatusRules;
 import com.torqmind.ops.domain.task.TaskType;
+import com.torqmind.ops.domain.user.User;
 import com.torqmind.ops.infrastructure.persistence.OccurrenceRepository;
+import com.torqmind.ops.infrastructure.persistence.UserRepository;
+import com.torqmind.ops.shared.api.ForbiddenException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,11 +24,21 @@ public class OccurrenceService {
     private final OccurrenceRepository occurrenceRepository;
     private final NotificationService notificationService;
     private final ActivityService activityService;
+    private final UserRepository userRepository;
+    private final TenantResolver tenantResolver;
 
-    public OccurrenceService(OccurrenceRepository occurrenceRepository, NotificationService notificationService, ActivityService activityService) {
+    public OccurrenceService(
+            OccurrenceRepository occurrenceRepository,
+            NotificationService notificationService,
+            ActivityService activityService,
+            UserRepository userRepository,
+            TenantResolver tenantResolver
+    ) {
         this.occurrenceRepository = occurrenceRepository;
         this.notificationService = notificationService;
         this.activityService = activityService;
+        this.userRepository = userRepository;
+        this.tenantResolver = tenantResolver;
     }
 
     public List<Occurrence> list(Long companyId, Long branchId, OccurrenceStatus status) {
@@ -63,6 +77,12 @@ public class OccurrenceService {
     public Occurrence transition(Long id, OccurrenceStatus next, String reason, UUID actor) {
         Occurrence occurrence = occurrenceRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ocorrência não encontrada."));
+
+        User actorUser = userRepository.findById(actor)
+                .orElseThrow(() -> new ForbiddenException("Usuário inválido."));
+        tenantResolver.assertCanAccess(
+                actorUser.getRole(), actorUser.getCompanyId(), actorUser.getBranchId(),
+                occurrence.getCompanyId(), occurrence.getBranchId());
 
         if (!StatusRules.canTransitionOccurrence(occurrence.getStatus(), next)) {
             throw new IllegalArgumentException("Transição de status de ocorrência inválida.");

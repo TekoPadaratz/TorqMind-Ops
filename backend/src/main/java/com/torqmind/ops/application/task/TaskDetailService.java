@@ -2,6 +2,7 @@ package com.torqmind.ops.application.task;
 
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.storage.DriveFolderService;
+import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.domain.company.Branch;
 import com.torqmind.ops.domain.company.Company;
 import com.torqmind.ops.domain.occurrence.Occurrence;
@@ -20,8 +21,11 @@ import com.torqmind.ops.infrastructure.persistence.TaskActivityRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskAttachmentRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskCommentRepository;
 import com.torqmind.ops.infrastructure.persistence.UserRepository;
+import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import com.torqmind.ops.infrastructure.storage.StoragePaths;
 import com.torqmind.ops.infrastructure.storage.StorageProvider;
+import com.torqmind.ops.shared.api.ForbiddenException;
+import com.torqmind.ops.shared.media.MediaSignatures;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +60,7 @@ public class TaskDetailService {
     private final DriveFolderService driveFolderService;
     private final NotificationService notificationService;
     private final ActivityService activityService;
+    private final TenantResolver tenantResolver;
 
     public TaskDetailService(
             RoutineRunRepository runRepository,
@@ -70,7 +75,8 @@ public class TaskDetailService {
             StorageProvider storageProvider,
             DriveFolderService driveFolderService,
             NotificationService notificationService,
-            ActivityService activityService
+            ActivityService activityService,
+            TenantResolver tenantResolver
     ) {
         this.runRepository = runRepository;
         this.templateRepository = templateRepository;
@@ -85,6 +91,7 @@ public class TaskDetailService {
         this.driveFolderService = driveFolderService;
         this.notificationService = notificationService;
         this.activityService = activityService;
+        this.tenantResolver = tenantResolver;
     }
 
     // ---------------- Comentários ----------------
@@ -93,7 +100,7 @@ public class TaskDetailService {
         if (body == null || body.isBlank()) {
             throw new IllegalArgumentException("Comentário não pode ser vazio.");
         }
-        ensureTaskExists(type, taskId);
+        ensureTaskAccess(type, taskId, actor);
 
         TaskComment comment = new TaskComment();
         comment.setTaskType(type.name());
@@ -112,17 +119,24 @@ public class TaskDetailService {
     // ---------------- Anexos ----------------
     @Transactional
     public AttachmentView addAttachment(TaskType type, Long taskId, UUID actor, String fileName, String mimeType, byte[] content) {
-        ensureTaskExists(type, taskId);
+        ensureTaskAccess(type, taskId, actor);
         if (content == null || content.length == 0) {
             throw new IllegalArgumentException("Arquivo vazio.");
         }
         if (content.length > MAX_BYTES) {
             throw new IllegalArgumentException("Arquivo acima do limite de 15 MB.");
         }
-        String mime = mimeType == null ? "" : mimeType.toLowerCase();
-        if (!ALLOWED_MIME.contains(mime)) {
+        String detected = MediaSignatures.detect(content);
+        if (detected == null) {
+            throw new IllegalArgumentException("Arquivo inválido. Envie uma imagem ou PDF real.");
+        }
+        if (!ALLOWED_MIME.contains(detected)) {
             throw new IllegalArgumentException("Tipo de arquivo não suportado. Envie imagem ou PDF.");
         }
+        if (!MediaSignatures.matchesDeclared(mimeType, detected)) {
+            throw new IllegalArgumentException("O conteúdo do arquivo não corresponde ao tipo informado.");
+        }
+        String mime = detected;
 
         String checksum = sha256(content);
         String ext = extensionFor(mime);
@@ -158,6 +172,15 @@ public class TaskDetailService {
     }
 
     // ---------------- Detalhe ----------------
+    public TaskDetail getRoutineRunDetail(Long runId, AppUserPrincipal me) {
+        RoutineRun run = runRepository.findById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Execução não encontrada."));
+        if (me != null) {
+            tenantResolver.assertCanAccess(me, run.getCompanyId(), run.getBranchId());
+        }
+        return getRoutineRunDetail(runId);
+    }
+
     public TaskDetail getRoutineRunDetail(Long runId) {
         RoutineRun run = runRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Execução não encontrada."));
@@ -196,6 +219,15 @@ public class TaskDetailService {
                 attachments.stream().map(a -> toAttachmentView(a, names)).toList(),
                 activities.stream().map(a -> toActivityView(a, names)).toList()
         );
+    }
+
+    public TaskDetail getOccurrenceDetail(Long occId, AppUserPrincipal me) {
+        Occurrence occ = occurrenceRepository.findById(occId)
+                .orElseThrow(() -> new IllegalArgumentException("Ocorrência não encontrada."));
+        if (me != null) {
+            tenantResolver.assertCanAccess(me, occ.getCompanyId(), occ.getBranchId());
+        }
+        return getOccurrenceDetail(occId);
     }
 
     public TaskDetail getOccurrenceDetail(Long occId) {
@@ -262,12 +294,30 @@ public class TaskDetailService {
         return StoragePaths.taskKindFolder(type.name()) + "/" + taskId;
     }
 
-    private void ensureTaskExists(TaskType type, Long taskId) {
-        boolean exists = type == TaskType.ROUTINE_RUN
-                ? runRepository.existsById(taskId)
-                : occurrenceRepository.existsById(taskId);
-        if (!exists) {
-            throw new IllegalArgumentException("Tarefa não encontrada.");
+    public boolean hasImageEvidence(TaskType type, Long taskId) {
+        return attachmentRepository.findByTaskTypeAndTaskIdOrderByCreatedAt(type.name(), taskId).stream()
+                .anyMatch(a -> MediaSignatures.isImage(a.getMimeType()));
+    }
+
+    public boolean hasCommentEvidence(TaskType type, Long taskId) {
+        return commentRepository.countByTaskTypeAndTaskId(type.name(), taskId) > 0;
+    }
+
+    private void ensureTaskAccess(TaskType type, Long taskId, UUID actor) {
+        User actorUser = userRepository.findById(actor)
+                .orElseThrow(() -> new ForbiddenException("Usuário inválido."));
+        if (type == TaskType.ROUTINE_RUN) {
+            RoutineRun run = runRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Tarefa não encontrada."));
+            tenantResolver.assertCanAccess(
+                    actorUser.getRole(), actorUser.getCompanyId(), actorUser.getBranchId(),
+                    run.getCompanyId(), run.getBranchId());
+        } else {
+            Occurrence occ = occurrenceRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Tarefa não encontrada."));
+            tenantResolver.assertCanAccess(
+                    actorUser.getRole(), actorUser.getCompanyId(), actorUser.getBranchId(),
+                    occ.getCompanyId(), occ.getBranchId());
         }
     }
 

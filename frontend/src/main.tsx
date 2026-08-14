@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
-import { apiGet } from './api';
+import { apiGet, apiPost } from './api';
 import { roleLabel } from './roles';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -14,11 +14,16 @@ import Admin from './pages/Admin';
 import Notifications from './pages/Notifications';
 import './styles.css';
 
+const VoiceSheet = lazy(() => import('./components/VoiceSheet'));
+
 function Shell() {
   const { session, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [unread, setUnread] = useState(0);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const isAdmin = session?.role === 'MASTER';
+  const onNotifications = location.pathname === '/notifications';
 
   useEffect(() => {
     if (!session) return;
@@ -29,15 +34,32 @@ function Shell() {
         .catch(() => undefined);
     load();
     const timer = setInterval(load, 30000);
+    const onRead = () => setUnread(0);
+    window.addEventListener('torqmind:notifications-read', onRead);
     return () => {
       active = false;
       clearInterval(timer);
+      window.removeEventListener('torqmind:notifications-read', onRead);
     };
   }, [session]);
 
   if (!session) return <Navigate to="/login" replace />;
 
   const navCount = isAdmin ? 4 : 3;
+
+  async function toggleNotifications() {
+    if (onNotifications) {
+      try {
+        await apiPost('/notifications/mark-read', {});
+      } catch {
+        /* ignore */
+      }
+      setUnread(0);
+      navigate(-1);
+      return;
+    }
+    navigate('/notifications');
+  }
 
   return (
     <div className="app-shell">
@@ -49,9 +71,14 @@ function Shell() {
           </p>
         </div>
         <div className="header-actions">
-          <button className="bell" onClick={() => navigate('/notifications')} aria-label="Notificações">
+          <button
+            className={`bell ${onNotifications ? 'active' : ''}`}
+            onClick={toggleNotifications}
+            aria-label={onNotifications ? 'Fechar avisos' : 'Avisos'}
+            aria-pressed={onNotifications}
+          >
             <span>🔔</span>
-            {unread > 0 && <span className="badge">{unread}</span>}
+            {unread > 0 && !onNotifications && <span className="badge">{unread}</span>}
           </button>
           <button
             className="btn-ghost"
@@ -75,6 +102,19 @@ function Shell() {
         <NavLink to="/occurrences">Ocorrências</NavLink>
         {isAdmin && <NavLink to="/admin">Gestão</NavLink>}
       </nav>
+      <button
+        type="button"
+        className="voice-fab"
+        onClick={() => setVoiceOpen(true)}
+        aria-label="Comando por voz"
+      >
+        🎤
+      </button>
+      {voiceOpen && (
+        <Suspense fallback={null}>
+          <VoiceSheet open={voiceOpen} onClose={() => setVoiceOpen(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

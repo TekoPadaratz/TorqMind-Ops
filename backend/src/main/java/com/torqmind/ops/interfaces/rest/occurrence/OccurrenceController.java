@@ -77,8 +77,11 @@ public class OccurrenceController {
     }
 
     @GetMapping("/{id}")
-    public TaskDetailService.TaskDetail detail(@PathVariable Long id) {
-        return taskDetailService.getOccurrenceDetail(id);
+    public TaskDetailService.TaskDetail detail(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return taskDetailService.getOccurrenceDetail(id, me);
     }
 
     @PostMapping("/{id}/comments")

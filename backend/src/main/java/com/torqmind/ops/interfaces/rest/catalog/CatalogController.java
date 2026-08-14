@@ -96,7 +96,10 @@ public class CatalogController {
                     ? userRepository.findByCompanyIdAndBranchIdAndActiveTrue(cid, branchFilter)
                     : userRepository.findByCompanyIdAndActiveTrue(cid);
         }
-        return list.stream().map(this::toMap).toList();
+        return list.stream()
+                .filter(u -> u.getRole() == null || !"MASTER".equalsIgnoreCase(u.getRole()))
+                .map(this::toMap)
+                .toList();
     }
 
     private Map<String, Object> toMap(User u) {

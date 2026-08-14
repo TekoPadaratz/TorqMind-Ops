@@ -43,6 +43,21 @@ app:
       oauth-token-file: ${GDRIVE_OAUTH_TOKEN_FILE:}
       credentials-file: ${GDRIVE_CREDENTIALS_FILE:}
       credentials-json: ${GDRIVE_CREDENTIALS_JSON:}
+  voice:
+    enabled: ${VOICE_ENABLED:true}
+    transcription-provider: ${VOICE_TRANSCRIPTION_PROVIDER:deterministic}
+    intent-provider: ${VOICE_INTENT_PROVIDER:deterministic}
+    openai-api-key: ${VOICE_OPENAI_API_KEY:}
+    openai-base-url: ${VOICE_OPENAI_BASE_URL:https://api.openai.com/v1}
+    transcribe-model: ${VOICE_TRANSCRIBE_MODEL:whisper-1}
+    intent-model: ${VOICE_INTENT_MODEL:gpt-4o-mini}
+    max-audio-bytes: ${VOICE_MAX_AUDIO_BYTES:8388608}
+    max-audio-seconds: ${VOICE_MAX_AUDIO_SECONDS:60}
+    draft-ttl-minutes: ${VOICE_DRAFT_TTL_MINUTES:15}
+    rate-limit-per-window: ${VOICE_RATE_LIMIT:20}
+    rate-limit-window-seconds: ${VOICE_RATE_WINDOW_SECONDS:600}
+    transcribe-timeout-ms: ${VOICE_TRANSCRIBE_TIMEOUT_MS:45000}
+    intent-timeout-ms: ${VOICE_INTENT_TIMEOUT_MS:20000}
 
 logging:
   level:

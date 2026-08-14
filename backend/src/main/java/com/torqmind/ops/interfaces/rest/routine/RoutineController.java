@@ -125,8 +125,11 @@ public class RoutineController {
     }
 
     @GetMapping("/runs/{id}")
-    public TaskDetailService.TaskDetail runDetail(@PathVariable Long id) {
-        return taskDetailService.getRoutineRunDetail(id);
+    public TaskDetailService.TaskDetail runDetail(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return taskDetailService.getRoutineRunDetail(id, me);
     }
 
     @PostMapping("/runs/{id}/comments")

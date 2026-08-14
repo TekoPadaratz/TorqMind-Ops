@@ -283,9 +283,13 @@ export default function Routines() {
           {targetType === 'USER' && (
             <select value={userId} onChange={(e) => setUserId(e.target.value)} required>
               <option value="">Selecione o usuário</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
-              ))}
+              {users
+                .filter((u) => u.role !== 'MASTER')
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} ({u.role === 'OWNER' ? 'Dono da empresa' : u.role === 'MANAGER' ? 'Gerente' : u.role === 'OPERATOR' ? 'Funcionário' : u.role})
+                  </option>
+                ))}
             </select>
           )}
 
@@ -354,12 +358,12 @@ export default function Routines() {
           )}
 
           <div className="time-row">
-            <div>
-              <label className="field-label">Início</label>
+            <div className="field-block">
+              <label className="field-label">Horário de início</label>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
             </div>
-            <div>
-              <label className="field-label">Vencimento</label>
+            <div className="field-block">
+              <label className="field-label">Horário de vencimento</label>
               <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} required />
             </div>
           </div>

@@ -2,6 +2,7 @@ package com.torqmind.ops.application.routine;
 
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.task.ActivityService;
+import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.domain.calendar.BrazilianNationalHolidays;
 import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.ops.StatusRules;
@@ -14,6 +15,8 @@ import com.torqmind.ops.infrastructure.persistence.RoutineTemplateRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskAttachmentRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskCommentRepository;
 import com.torqmind.ops.infrastructure.persistence.UserRepository;
+import com.torqmind.ops.shared.api.ForbiddenException;
+import com.torqmind.ops.shared.media.MediaSignatures;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +46,7 @@ public class RoutineService {
     private final TaskAttachmentRepository attachmentRepository;
     private final TaskCommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final TenantResolver tenantResolver;
 
     public RoutineService(
             RoutineTemplateRepository templateRepository,
@@ -51,7 +55,8 @@ public class RoutineService {
             ActivityService activityService,
             TaskAttachmentRepository attachmentRepository,
             TaskCommentRepository commentRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            TenantResolver tenantResolver
     ) {
         this.templateRepository = templateRepository;
         this.runRepository = runRepository;
@@ -60,6 +65,7 @@ public class RoutineService {
         this.attachmentRepository = attachmentRepository;
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
+        this.tenantResolver = tenantResolver;
     }
 
     public List<RoutineTemplate> listTemplates(Long companyId) {
@@ -126,6 +132,19 @@ public class RoutineService {
         RoutineRun run = runRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Execução não encontrada."));
 
+        User actorUser = userRepository.findById(actor)
+                .orElseThrow(() -> new ForbiddenException("Usuário inválido."));
+        tenantResolver.assertCanAccess(
+                actorUser.getRole(), actorUser.getCompanyId(), actorUser.getBranchId(),
+                run.getCompanyId(), run.getBranchId());
+
+        if ((next == RoutineStatus.EM_ANDAMENTO || next == RoutineStatus.CONCLUIDA)
+                && run.getAssignedUserId() != null
+                && !run.getAssignedUserId().equals(actor)
+                && !"MASTER".equalsIgnoreCase(actorUser.getRole())) {
+            throw new ForbiddenException("Somente o responsável pode iniciar ou concluir esta tarefa.");
+        }
+
         if (!StatusRules.canTransitionRoutine(run.getStatus(), next)) {
             throw new IllegalArgumentException("Transição de status de rotina inválida.");
         }
@@ -140,7 +159,7 @@ public class RoutineService {
             }
         }
         if (next == RoutineStatus.CONCLUIDA && template != null && template.isRequiresPhoto()
-                && attachmentRepository.countByTaskTypeAndTaskId(TaskType.ROUTINE_RUN.name(), run.getId()) == 0) {
+                && !hasValidPhoto(TaskType.ROUTINE_RUN, run.getId())) {
             throw new IllegalArgumentException("Esta rotina exige ao menos uma foto para ser concluída.");
         }
 
@@ -538,5 +557,10 @@ public class RoutineService {
             case "USER", "SECTOR", "MANAGERS", "ALL" -> v;
             default -> throw new IllegalArgumentException("Alvo inválido.");
         };
+    }
+
+    private boolean hasValidPhoto(TaskType type, Long taskId) {
+        return attachmentRepository.findByTaskTypeAndTaskIdOrderByCreatedAt(type.name(), taskId).stream()
+                .anyMatch(a -> MediaSignatures.isImage(a.getMimeType()));
     }
 }

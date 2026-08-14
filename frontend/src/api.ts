@@ -68,6 +68,37 @@ export async function apiUpload(path: string, file: File) {
   return handle(res);
 }
 
+export async function apiPatch(path: string, body: unknown) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(body ?? {})
+  });
+  return handle(res);
+}
+
+export async function apiUploadForm(path: string, form: FormData) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: form
+  });
+  return handle(res);
+}
+
+export async function apiPostIdempotent(path: string, body: unknown, idempotencyKey: string) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+      ...authHeaders()
+    },
+    body: JSON.stringify(body ?? {})
+  });
+  return handle(res);
+}
+
 export async function apiBlob(path: string): Promise<Blob> {
   // A URL do anexo já vem completa do backend (/api/attachments/{id}); evita /api duplicado.
   const url = path.startsWith('/api') ? path : `${API_BASE}${path}`;

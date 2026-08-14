@@ -29,6 +29,13 @@ services:
       GDRIVE_CREDENTIALS_FILE: ${GDRIVE_CREDENTIALS_FILE:-}
       GDRIVE_CREDENTIALS_JSON: ${GDRIVE_CREDENTIALS_JSON:-}
       TZ: America/Sao_Paulo
+      VOICE_ENABLED: ${VOICE_ENABLED:-true}
+      VOICE_TRANSCRIPTION_PROVIDER: ${VOICE_TRANSCRIPTION_PROVIDER:-deterministic}
+      VOICE_INTENT_PROVIDER: ${VOICE_INTENT_PROVIDER:-deterministic}
+      VOICE_OPENAI_API_KEY: ${VOICE_OPENAI_API_KEY:-}
+      VOICE_OPENAI_BASE_URL: ${VOICE_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      VOICE_TRANSCRIBE_MODEL: ${VOICE_TRANSCRIBE_MODEL:-whisper-1}
+      VOICE_INTENT_MODEL: ${VOICE_INTENT_MODEL:-gpt-4o-mini}
     volumes:
       - storage:/app/storage
       - ./secrets:/app/secrets:ro

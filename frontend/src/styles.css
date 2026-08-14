@@ -94,9 +94,11 @@ input, select, textarea {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--ink);
-  font-size: 1rem;
+  font-size: 16px; /* evita zoom automático no iOS */
+  min-height: 48px;
+  box-sizing: border-box;
 }
-textarea { min-height: 90px; resize: vertical; }
+textarea { min-height: 96px; resize: vertical; }
 
 .btn-primary {
   width: 100%;
@@ -154,6 +156,10 @@ textarea { min-height: 90px; resize: vertical; }
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
+}
+.bell.active {
+  background: color-mix(in oklab, var(--accent) 18%, var(--surface-2));
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
 }
 .bell .badge {
   position: absolute;
@@ -264,10 +270,49 @@ textarea { min-height: 90px; resize: vertical; }
 .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; }
 .check input { width: auto; margin: 0; }
 
-.field-label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+.field-label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; display: block; }
 
-.time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.field-block .field-label { margin-top: 0; }
+
+.time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
 .time-row .field-label { margin-top: 0; }
+
+/* Mobile: horários empilhados, toque confortável, sem zoom no iOS */
+@media (max-width: 520px) {
+  .time-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .app-header {
+    padding: 12px 14px;
+  }
+  .app-header h1 { font-size: 1.05rem; }
+  .card { padding: 14px; border-radius: 16px; }
+  .stack { gap: 14px; }
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.card-head h2 { margin: 0; }
+
+.notif-unread {
+  border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+}
 
 /* ---------- Chips ---------- */
 .chip {
@@ -523,3 +568,52 @@ textarea { min-height: 90px; resize: vertical; }
 
 .comment-box { display: flex; flex-direction: column; gap: 8px; }
 .comment-box .btn-primary { width: auto; align-self: flex-end; padding: 10px 18px; }
+
+.voice-fab {
+  position: fixed;
+  right: max(16px, calc(50% - 360px + 16px));
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1.4rem;
+  box-shadow: var(--shadow);
+  z-index: 40;
+  cursor: pointer;
+}
+.voice-fab:focus-visible { outline: 3px solid color-mix(in oklab, var(--accent) 50%, white); }
+.voice-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.voice-sheet {
+  width: 100%;
+  max-width: 720px;
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow);
+}
+.voice-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.voice-head h2 { margin: 0; font-size: 1.1rem; }
+.voice-rec { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-size: 1.2rem; }
+.voice-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--danger);
+  animation: voice-pulse 1s ease-in-out infinite;
+}
+@keyframes voice-pulse { 50% { opacity: 0.35; } }
+.voice-text { margin-top: 8px; }
+.voice-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.voice-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.voice-preview { display: flex; flex-direction: column; gap: 10px; }

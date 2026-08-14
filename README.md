@@ -1,62 +1,48 @@
 # TorqMind Ops SaaS
 
-Fundação de produto SaaS para gestão operacional de redes de postos de combustível.
+Gestão operacional de redes de postos. App principal no celular. Homologação: porta host **88**.
 
 ## Stack
 
-- Backend: Java 21 + Spring Boot 3 + Flyway + PostgreSQL
-- Frontend: React + Vite + TypeScript + PWA
-- Infra: Docker Compose + Nginx
+- Backend: Java 21 + Spring Boot 3.3.3 + Flyway + PostgreSQL
+- Frontend: React + Vite + TypeScript
+- Infra: Docker Compose + Nginx (`torqmind-ops-saas` apenas)
+
+## Mapas
+
+- `docs/architecture/SYSTEM_MAP.md`
+- `docs/architecture/ENVIRONMENT_MAP.md`
+- `docs/product/BUSINESS_RULES.md`
+- `docs/contracts/VOICE_COMMANDS.md`
+- `docs/engineering/HOMOLOGATION.md`
+- `docs/engineering/VOICE_PROVIDER.md`
 
 ## Módulos
 
-- Rotinas: execuções programadas com status PENDENTE, EM_ANDAMENTO, CONCLUIDA, ATRASADA, REJEITADA
-- Ocorrências: fluxo reativo com status ABERTA, EM_ATENDIMENTO, AGUARDANDO_VALIDACAO, ENCERRADA, REJEITADA
-
-## Regras críticas
-
-- Multi-tenant por empresa e filial
-- Notificação sem auto-retorno para quem executa a ação
-- Abstração de arquivos via StorageProvider
+Rotinas, ocorrências, notificações, catálogo, **comandos por voz** (rascunho + confirmação).
 
 ## Como rodar
 
-1. Copie .env.example para .env
-2. Suba os serviços:
+1. Copie `.env.example` para `.env` (não commite).
+2. `cd /home/tm/torqmind-ops-saas && docker compose up --build -d`
+3. App: `http://localhost:88/` (ou `http://task.torqmind.com.br`)
 
-```bash
-make up
-```
+Nunca use `docker compose down` neste servidor compartilhado sem `-p torqmind-ops-saas` e certeza do diretório. Não toque nos stacks `torqmind` / `torqmind-homolog`.
 
-3. Endpoints:
+## Voz
 
-- App: http://localhost:88/
-- Backend (via nginx): http://localhost:88/api/ops/notifications/should-notify?actorUserId=00000000-0000-0000-0000-000000000001&recipientUserId=00000000-0000-0000-0000-000000000002
-
-## Desenvolvimento local
-
-Backend:
-
-```bash
-cd backend
-mvn spring-boot:run
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
+Botão 🎤 acima da navegação. Sem `VOICE_OPENAI_API_KEY`, grave **ou digite** o comando (provider `deterministic`). Com a chave, STT Whisper + interpretação JSON. Nenhuma ação mutável sem confirmar.
 
 ## Testes
 
 ```bash
 make backend-test
+cd frontend && npm test && npm run build
 ```
 
-## Observações
+## Rollback
 
-- O StorageProvider atual usa LocalStorageProvider com raiz configurável por variável de ambiente.
-- A integração JWT está preparada na configuração base e deve ser endurecida na fase seguinte com filtros e RBAC por escopo.
+1. Reverter o commit/arquivos do Ops.
+2. `docker compose up -d --build backend frontend` neste diretório.
+3. Flyway V12 não deve ser revertida; se necessário, a tabela `voice_drafts` pode ficar vazia. Não rode `flyway clean` / `drop`.
+4. Restaurar dump: `cat backup.sql | docker exec -i torqmind-ops-saas-postgres-1 psql -U postgres -d torqmind_ops`
