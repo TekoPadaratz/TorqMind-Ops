@@ -1,7 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { apiDelete, apiGet, apiPatch, apiPost, apiPostIdempotent, apiUpload, apiUploadForm } from '../api';
-import { idempotencyKeyFor, taskContextFromPath, VoiceDraft, VoiceStatus, VoiceUiState } from '../voice/voice';
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostIdempotent, apiUpload } from '../api';
+import {
+  browserSpeechRecognitionConstructor,
+  browserSpeechRecognitionSupported,
+  BrowserSpeechRecognition,
+  idempotencyKeyFor,
+  taskContextFromPath,
+  VoiceDraft,
+  VoiceStatus,
+  VoiceUiState
+} from '../voice/voice';
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -15,9 +24,9 @@ export default function VoiceSheet({ open, onClose }: Props) {
   const [transcript, setTranscript] = useState('');
   const [draft, setDraft] = useState<VoiceDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const recognizedTextRef = useRef('');
+  const submitOnEndRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
 
@@ -29,11 +38,13 @@ export default function VoiceSheet({ open, onClose }: Props) {
         if (!s.enabled) {
           setUi('error');
           setMessage('Comandos por voz estão desligados. Use a tela normalmente.');
-        } else if (!navigator.mediaDevices?.getUserMedia && !s.manualTranscriptAllowed) {
+        } else if (!browserSpeechRecognitionSupported() && !s.manualTranscriptAllowed) {
           setUi('unsupported');
         } else {
           setUi('consent');
-          setMessage('O microfone só grava depois do seu ok. Você pode cancelar a qualquer momento.');
+          setMessage(browserSpeechRecognitionSupported()
+            ? 'Fale usando o reconhecimento do celular, sem consumir créditos da OpenAI.'
+            : 'Este navegador não oferece reconhecimento de fala. Digite o comando abaixo.');
         }
       })
       .catch(() => {
@@ -42,17 +53,28 @@ export default function VoiceSheet({ open, onClose }: Props) {
       });
   }, [open]);
 
-  useEffect(() => () => stopTracks(), []);
+  useEffect(() => () => stopRecognition(false), []);
 
-  function stopTracks() {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+  function clearTimer() {
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
   }
 
+  function stopRecognition(submit: boolean) {
+    submitOnEndRef.current = submit;
+    clearTimer();
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    try {
+      if (submit) recognition.stop();
+      else recognition.abort();
+    } catch {
+      recognitionRef.current = null;
+    }
+  }
+
   function reset() {
-    stopTracks();
+    stopRecognition(false);
     setDraft(null);
     setTranscript('');
     setSeconds(0);
@@ -60,92 +82,95 @@ export default function VoiceSheet({ open, onClose }: Props) {
     setUi(status?.enabled ? 'consent' : 'error');
   }
 
-  async function startRecording() {
-    if (!navigator.mediaDevices?.getUserMedia) {
+  function startRecording() {
+    const Recognition = browserSpeechRecognitionConstructor();
+    if (!Recognition) {
       setUi('unsupported');
-      setMessage('Este navegador não grava áudio. Digite o comando abaixo.');
+      setMessage('Este navegador não reconhece fala. Digite o comando abaixo.');
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      chunksRef.current = [];
-      rec.ondataavailable = (ev) => {
-        if (ev.data.size > 0) chunksRef.current.push(ev.data);
+      const recognition = new Recognition();
+      recognition.lang = 'pt-BR';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognizedTextRef.current = '';
+      submitOnEndRef.current = true;
+      recognition.onresult = (event) => {
+        let text = '';
+        for (let index = 0; index < event.results.length; index += 1) {
+          text += event.results[index]?.[0]?.transcript ?? '';
+        }
+        recognizedTextRef.current = text.trim();
+        setTranscript(recognizedTextRef.current);
       };
-      rec.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
-        void sendAudio(blob);
+      recognition.onerror = (event) => {
+        submitOnEndRef.current = false;
+        const denied = event.error === 'not-allowed' || event.error === 'service-not-allowed';
+        setUi('error');
+        setMessage(denied
+          ? 'Permissão de microfone negada. Você pode digitar o comando.'
+          : 'Não consegui reconhecer a fala. Tente novamente ou digite o comando.');
       };
-      mediaRef.current = rec;
-      rec.start();
+      recognition.onend = () => {
+        clearTimer();
+        recognitionRef.current = null;
+        const recognized = recognizedTextRef.current.trim();
+        if (submitOnEndRef.current && recognized) {
+          void sendRecognizedText(recognized);
+        } else if (submitOnEndRef.current) {
+          setUi('consent');
+          setMessage('Não ouvi um comando. Tente novamente ou digite abaixo.');
+        }
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
       setSeconds(0);
       setUi('recording');
-      setMessage('Ouvindo… toque em parar quando terminar.');
+      setMessage('Ouvindo pelo celular… toque em parar quando terminar.');
       timerRef.current = window.setInterval(() => {
         setSeconds((s) => {
           const next = s + 1;
           if (next >= (status?.maxSeconds ?? 60)) {
-            stopRecording();
+            stopRecognition(true);
           }
           return next;
         });
       }, 1000);
     } catch {
       setUi('error');
-      setMessage('Permissão de microfone negada. Você pode digitar o comando.');
+      setMessage('Não foi possível abrir o reconhecimento de fala. Digite o comando abaixo.');
     }
   }
 
   function stopRecording() {
-    if (mediaRef.current && mediaRef.current.state !== 'inactive') {
-      mediaRef.current.stop();
-    }
-    stopTracks();
+    setMessage('Finalizando o reconhecimento…');
+    stopRecognition(true);
   }
 
   function cancelRecording() {
-    if (mediaRef.current && mediaRef.current.state !== 'inactive') {
-      mediaRef.current.onstop = null;
-      mediaRef.current.stop();
-    }
-    chunksRef.current = [];
-    stopTracks();
+    stopRecognition(false);
     reset();
     onClose();
   }
 
-  async function sendAudio(blob: Blob) {
-    setUi('processing');
-    setMessage('Interpretando o comando…');
-    const form = new FormData();
-    form.append('file', blob, 'command.webm');
-    const ctx = taskContextFromPath(location.pathname);
-    form.append('contextJson', JSON.stringify(ctx));
-    if (transcript.trim()) form.append('transcript', transcript.trim());
-    try {
-      const created = await apiUploadForm('/voice/drafts', form);
-      applyDraft(created);
-    } catch (e) {
-      setUi('error');
-      setMessage(e instanceof Error ? e.message : 'Falha ao enviar o áudio.');
-    }
+  async function sendText() {
+    await sendRecognizedText(transcript);
   }
 
-  async function sendText() {
-    if (!transcript.trim()) {
+  async function sendRecognizedText(value: string) {
+    const normalized = value.trim();
+    if (!normalized) {
       setMessage('Digite o que você quer fazer.');
       return;
     }
+    setTranscript(normalized);
     setUi('processing');
     setBusy(true);
     try {
       const created = await apiPost('/voice/drafts', {
-        transcript: transcript.trim(),
+        transcript: normalized,
         ...taskContextFromPath(location.pathname)
       });
       applyDraft(created);
@@ -296,7 +321,9 @@ export default function VoiceSheet({ open, onClose }: Props) {
         )}
         {ui === 'consent' && (
           <div className="voice-actions">
-            <button type="button" className="btn-primary" onClick={startRecording}>Permitir microfone e gravar</button>
+            {browserSpeechRecognitionSupported() && (
+              <button type="button" className="btn-primary" onClick={startRecording}>Falar comando (grátis)</button>
+            )}
             <button type="button" className="btn-ghost" onClick={sendText} disabled={busy}>Enviar texto</button>
           </div>
         )}
