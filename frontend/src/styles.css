@@ -208,6 +208,13 @@ textarea { min-height: 90px; resize: vertical; }
 }
 .card h2 { margin: 0 0 12px; font-size: 1rem; }
 
+.section-summary {
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.card details[open] > .section-summary { margin-bottom: 12px; }
+
 .status-banner {
   border-radius: 16px;
   padding: 16px 18px;

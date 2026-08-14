@@ -29,9 +29,12 @@ function Shell() {
         .catch(() => undefined);
     load();
     const timer = setInterval(load, 30000);
+    const onRead = () => setUnread(0);
+    window.addEventListener('torqmind:notifications-read', onRead);
     return () => {
       active = false;
       clearInterval(timer);
+      window.removeEventListener('torqmind:notifications-read', onRead);
     };
   }, [session]);
 

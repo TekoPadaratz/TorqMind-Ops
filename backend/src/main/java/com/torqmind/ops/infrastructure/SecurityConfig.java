@@ -6,6 +6,7 @@ import com.torqmind.ops.infrastructure.security.LoginRateLimitFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -22,6 +23,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 @Configuration
 @EnableMethodSecurity
@@ -29,11 +31,17 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final LoginRateLimitFilter loginRateLimitFilter;
+    private final String allowedOrigins;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, LoginRateLimitFilter loginRateLimitFilter) {
+    public SecurityConfig(
+            JwtAuthFilter jwtAuthFilter,
+            LoginRateLimitFilter loginRateLimitFilter,
+            @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}") String allowedOrigins
+    ) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.loginRateLimitFilter = loginRateLimitFilter;
+        this.allowedOrigins = allowedOrigins;
     }
 
     @Bean
@@ -73,10 +81,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
+        config.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

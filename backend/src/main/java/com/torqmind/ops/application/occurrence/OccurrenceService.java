@@ -2,29 +2,41 @@ package com.torqmind.ops.application.occurrence;
 
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.task.ActivityService;
+import com.torqmind.ops.application.tenant.TenantAccessService;
 import com.torqmind.ops.domain.occurrence.Occurrence;
 import com.torqmind.ops.domain.ops.OccurrenceStatus;
 import com.torqmind.ops.domain.ops.StatusRules;
 import com.torqmind.ops.domain.task.TaskType;
 import com.torqmind.ops.infrastructure.persistence.OccurrenceRepository;
+import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class OccurrenceService {
 
+    private static final Set<String> PRIORITIES = Set.of("BAIXA", "MEDIA", "ALTA", "CRITICA");
+
     private final OccurrenceRepository occurrenceRepository;
     private final NotificationService notificationService;
     private final ActivityService activityService;
+    private final TenantAccessService tenantAccessService;
 
-    public OccurrenceService(OccurrenceRepository occurrenceRepository, NotificationService notificationService, ActivityService activityService) {
+    public OccurrenceService(
+            OccurrenceRepository occurrenceRepository,
+            NotificationService notificationService,
+            ActivityService activityService,
+            TenantAccessService tenantAccessService
+    ) {
         this.occurrenceRepository = occurrenceRepository;
         this.notificationService = notificationService;
         this.activityService = activityService;
+        this.tenantAccessService = tenantAccessService;
     }
 
     public List<Occurrence> list(Long companyId, Long branchId, OccurrenceStatus status) {
@@ -41,7 +53,20 @@ public class OccurrenceService {
     }
 
     @Transactional
-    public Occurrence open(Occurrence occurrence, UUID actor) {
+    public Occurrence open(Occurrence occurrence, AppUserPrincipal me) {
+        tenantAccessService.requireBranchInCompany(occurrence.getCompanyId(), occurrence.getBranchId());
+        if (occurrence.getAssigneeUserId() != null) {
+            tenantAccessService.requireTargetUser(
+                    occurrence.getCompanyId(), occurrence.getBranchId(), occurrence.getAssigneeUserId());
+        }
+        String priority = occurrence.getPriority() == null
+                ? "MEDIA"
+                : occurrence.getPriority().trim().toUpperCase();
+        if (!PRIORITIES.contains(priority)) {
+            throw new IllegalArgumentException("Prioridade inválida.");
+        }
+        occurrence.setPriority(priority);
+        UUID actor = me.userId();
         Instant now = Instant.now();
         occurrence.setStatus(OccurrenceStatus.ABERTA);
         occurrence.setOpenedBy(actor);
@@ -60,9 +85,9 @@ public class OccurrenceService {
     }
 
     @Transactional
-    public Occurrence transition(Long id, OccurrenceStatus next, String reason, UUID actor) {
-        Occurrence occurrence = occurrenceRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ocorrência não encontrada."));
+    public Occurrence transition(Long id, OccurrenceStatus next, String reason, AppUserPrincipal me) {
+        Occurrence occurrence = tenantAccessService.requireOccurrenceAccess(me, id);
+        UUID actor = me.userId();
 
         if (!StatusRules.canTransitionOccurrence(occurrence.getStatus(), next)) {
             throw new IllegalArgumentException("Transição de status de ocorrência inválida.");

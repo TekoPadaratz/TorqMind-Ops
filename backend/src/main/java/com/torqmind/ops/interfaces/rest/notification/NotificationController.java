@@ -5,11 +5,14 @@ import com.torqmind.ops.infrastructure.persistence.NotificationRepository;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.time.Instant;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -29,5 +32,11 @@ public class NotificationController {
     @GetMapping("/unread-count")
     public Map<String, Long> unreadCount(@AuthenticationPrincipal AppUserPrincipal me) {
         return Map.of("count", notificationRepository.countByRecipientUserIdAndReadAtIsNull(me.userId()));
+    }
+
+    @PostMapping("/read-all")
+    @Transactional
+    public Map<String, Integer> markAllRead(@AuthenticationPrincipal AppUserPrincipal me) {
+        return Map.of("updated", notificationRepository.markAllRead(me.userId(), Instant.now()));
     }
 }

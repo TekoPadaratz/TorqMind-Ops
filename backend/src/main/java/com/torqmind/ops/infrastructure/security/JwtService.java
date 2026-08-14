@@ -27,7 +27,15 @@ public class JwtService {
             @Value("${app.jwt.issuer}") String issuer,
             @Value("${app.jwt.expiration-minutes:720}") long expirationMinutes
     ) {
-        this.key = Keys.hmacShaKeyFor(sha256(secret));
+        String normalizedSecret = secret == null ? "" : secret.trim();
+        String lowerSecret = normalizedSecret.toLowerCase();
+        if (normalizedSecret.length() < 32
+                || lowerSecret.startsWith("change-me")
+                || lowerSecret.startsWith("trocar-")) {
+            throw new IllegalStateException(
+                    "JWT_SECRET deve ser aleatório, ter ao menos 32 caracteres e não usar o valor de exemplo.");
+        }
+        this.key = Keys.hmacShaKeyFor(sha256(normalizedSecret));
         this.issuer = issuer;
         this.expirationMinutes = expirationMinutes;
     }
