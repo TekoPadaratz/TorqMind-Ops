@@ -44,4 +44,9 @@ public class NotificationController {
         int updated = notificationService.markAllRead(me.userId());
         return Map.of("marked", updated, "count", 0L);
     }
+
+    @PostMapping("/read-all")
+    public Map<String, Integer> markAllRead(@AuthenticationPrincipal AppUserPrincipal me) {
+        return Map.of("updated", notificationService.markAllRead(me.userId()));
+    }
 }

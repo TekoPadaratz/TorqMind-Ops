@@ -23,6 +23,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  useEffect(() => {
+    const onUnauthorized = () => setSession(null);
+    window.addEventListener('torqmind:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('torqmind:unauthorized', onUnauthorized);
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => ({
     session,
     async login(username: string, password: string) {

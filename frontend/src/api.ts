@@ -2,6 +2,7 @@ const API_BASE = '/api';
 
 export type Session = {
   token: string;
+  userId: string;
   username: string;
   fullName: string;
   role: string;
@@ -18,8 +19,20 @@ function authHeaders(): Record<string, string> {
 async function handle(res: Response) {
   if (res.status === 204) return null;
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('torqmind.token');
+      localStorage.removeItem('torqmind.session');
+      window.dispatchEvent(new Event('torqmind:unauthorized'));
+    }
     const message = (data && (data.message || data.error)) || `Erro ${res.status}`;
     throw new Error(message);
   }
@@ -104,6 +117,11 @@ export async function apiBlob(path: string): Promise<Blob> {
   const url = path.startsWith('/api') ? path : `${API_BASE}${path}`;
   const res = await fetch(url, { headers: { ...authHeaders() } });
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('torqmind.token');
+      localStorage.removeItem('torqmind.session');
+      window.dispatchEvent(new Event('torqmind:unauthorized'));
+    }
     throw new Error(`Erro ${res.status}`);
   }
   return res.blob();

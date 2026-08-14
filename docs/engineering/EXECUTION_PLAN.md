@@ -4,7 +4,7 @@ Uma etapa principal por vez. Fonte de verdade: servidor `/home/tm/torqmind-ops-s
 
 ## Decisões
 
-- Spring Boot permanece **3.3.3** (Boot 4.x seria migração ampla e bloquearia a voz).
+- Spring Boot **3.5.16** (corrigir código se necessário; não voltar para 3.3.3).
 - PWA com cache **não** reativada (histórico de SW preso no iOS). Manifesto mínimo + `viewport-fit=cover` apenas.
 - Sem credencial OpenAI no ambiente: arquitetura + provider real + **deterministic** para testes/homologação textual. Variável: `VOICE_OPENAI_API_KEY`.
 - Cópia Windows `C:\TorqMind-Ops` fora de alcance; não sobrescrever nada lá.
@@ -24,7 +24,7 @@ Uma etapa principal por vez. Fonte de verdade: servidor `/home/tm/torqmind-ops-s
 
 - Listas imutáveis do interpretador: rascunho sempre recopia para `ArrayList` antes de mutar.
 - Sanitização de injection remove trechos, não a frase inteira.
-- Teste de contexto Spring excluído do `Dockerfile` (precisa do Postgres do Compose).
+- Teste de contexto Spring usa H2 em memória; `Dockerfile` roda `mvn test package`.
 
 ## Riscos
 

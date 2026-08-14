@@ -1,6 +1,7 @@
 package com.torqmind.ops.application.admin;
 
 import com.torqmind.ops.application.storage.DriveFolderService;
+import com.torqmind.ops.application.tenant.TenantAccessService;
 import com.torqmind.ops.domain.company.Branch;
 import com.torqmind.ops.domain.company.Company;
 import com.torqmind.ops.domain.sector.Sector;
@@ -31,6 +32,7 @@ public class AdminService {
     private final BranchRepository branchRepository;
     private final PasswordEncoder passwordEncoder;
     private final DriveFolderService driveFolderService;
+    private final TenantAccessService tenantAccessService;
 
     public AdminService(
             UserRepository userRepository,
@@ -38,7 +40,8 @@ public class AdminService {
             CompanyRepository companyRepository,
             BranchRepository branchRepository,
             PasswordEncoder passwordEncoder,
-            DriveFolderService driveFolderService
+            DriveFolderService driveFolderService,
+            TenantAccessService tenantAccessService
     ) {
         this.userRepository = userRepository;
         this.sectorRepository = sectorRepository;
@@ -46,6 +49,7 @@ public class AdminService {
         this.branchRepository = branchRepository;
         this.passwordEncoder = passwordEncoder;
         this.driveFolderService = driveFolderService;
+        this.tenantAccessService = tenantAccessService;
     }
 
     @Transactional
@@ -86,6 +90,16 @@ public class AdminService {
                 throw new IllegalArgumentException("Gerente e funcionário precisam de uma filial.");
             }
         }
+        if (companyId != null && companyRepository.findById(companyId).isEmpty()) {
+            throw new IllegalArgumentException("Empresa inválida.");
+        }
+        tenantAccessService.requireBranchInCompany(companyId, branchId);
+        if (sectorId != null) {
+            if (companyId == null) {
+                throw new IllegalArgumentException("Selecione a empresa do setor.");
+            }
+            tenantAccessService.requireTargetSector(companyId, branchId, sectorId);
+        }
 
         PasswordPolicy.validate(password);
 
@@ -119,6 +133,7 @@ public class AdminService {
         if (companyId == null || companyRepository.findById(companyId).isEmpty()) {
             throw new IllegalArgumentException("Empresa inválida.");
         }
+        tenantAccessService.requireBranchInCompany(companyId, branchId);
         Sector sector = new Sector();
         sector.setName(name.trim());
         sector.setCompanyId(companyId);

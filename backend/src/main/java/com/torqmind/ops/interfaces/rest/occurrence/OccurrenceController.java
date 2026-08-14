@@ -9,6 +9,8 @@ import com.torqmind.ops.domain.task.TaskType;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -64,7 +66,7 @@ public class OccurrenceController {
         occurrence.setDescription(request.description());
         occurrence.setPriority(request.priority() == null ? "MEDIA" : request.priority());
         occurrence.setAssigneeUserId(parseUuid(request.assigneeUserId()));
-        return occurrenceService.open(occurrence, me.userId());
+        return occurrenceService.open(occurrence, me);
     }
 
     @PostMapping("/{id}/transition")
@@ -73,7 +75,7 @@ public class OccurrenceController {
             @Valid @RequestBody TransitionRequest request,
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
-        return occurrenceService.transition(id, request.status(), request.reason(), me.userId());
+        return occurrenceService.transition(id, request.status(), request.reason(), me);
     }
 
     @GetMapping("/{id}")
@@ -90,7 +92,7 @@ public class OccurrenceController {
             @Valid @RequestBody CommentRequest request,
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
-        return taskDetailService.addComment(TaskType.OCCURRENCE, id, me.userId(), request.body());
+        return taskDetailService.addComment(TaskType.OCCURRENCE, id, me, request.body());
     }
 
     @PostMapping("/{id}/attachments")
@@ -100,8 +102,8 @@ public class OccurrenceController {
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
         try {
-            return taskDetailService.addAttachment(TaskType.OCCURRENCE, id, me.userId(),
-                    file.getOriginalFilename(), file.getContentType(), file.getBytes());
+            return taskDetailService.addAttachment(TaskType.OCCURRENCE, id, me,
+                    file.getOriginalFilename(), file.getBytes());
         } catch (IOException ex) {
             throw new IllegalArgumentException("Falha ao ler o arquivo enviado.");
         }
@@ -117,14 +119,14 @@ public class OccurrenceController {
     public record CreateOccurrenceRequest(
             Long companyId,
             Long branchId,
-            @NotBlank String title,
+            @NotBlank @Size(max = 180) String title,
             @NotBlank String description,
             String priority,
             String assigneeUserId
     ) {
     }
 
-    public record TransitionRequest(OccurrenceStatus status, String reason) {
+    public record TransitionRequest(@NotNull OccurrenceStatus status, String reason) {
     }
 
     public record CommentRequest(@NotBlank String body) {

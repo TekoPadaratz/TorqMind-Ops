@@ -8,6 +8,8 @@ type Notification = {
   body: string;
   createdAt: string;
   readAt: string | null;
+  entityType: string;
+  entityId: number;
 };
 
 export default function Notifications() {
@@ -23,7 +25,6 @@ export default function Notifications() {
         const list = await apiGet('/notifications');
         if (!active) return;
         setItems(list);
-        // Marca como lidas ao abrir (não apaga); limpa o badge do sino
         await apiPost('/notifications/mark-read', {});
         window.dispatchEvent(new Event('torqmind:notifications-read'));
       } catch (e) {
@@ -34,6 +35,14 @@ export default function Notifications() {
       active = false;
     };
   }, [location.key]);
+
+  function openNotification(notification: Notification) {
+    if (notification.entityType === 'ROUTINE_RUN') {
+      navigate(`/routines/${notification.entityId}`);
+    } else if (notification.entityType === 'OCCURRENCE') {
+      navigate(`/occurrences/${notification.entityId}`);
+    }
+  }
 
   return (
     <div className="page">
@@ -50,7 +59,11 @@ export default function Notifications() {
         ) : (
           <ul className="list">
             {items.map((n) => (
-              <li key={n.id} className={`run-item ${n.readAt ? '' : 'notif-unread'}`}>
+              <li
+                key={n.id}
+                className={`run-item clickable ${n.readAt ? '' : 'notif-unread'}`}
+                onClick={() => openNotification(n)}
+              >
                 <div>
                   <strong>{n.title}</strong>
                   <div className="muted small">{n.body}</div>

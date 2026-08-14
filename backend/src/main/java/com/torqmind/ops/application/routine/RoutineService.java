@@ -2,7 +2,7 @@ package com.torqmind.ops.application.routine;
 
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.task.ActivityService;
-import com.torqmind.ops.application.tenant.TenantResolver;
+import com.torqmind.ops.application.tenant.TenantAccessService;
 import com.torqmind.ops.domain.calendar.BrazilianNationalHolidays;
 import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.ops.StatusRules;
@@ -15,7 +15,7 @@ import com.torqmind.ops.infrastructure.persistence.RoutineTemplateRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskAttachmentRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskCommentRepository;
 import com.torqmind.ops.infrastructure.persistence.UserRepository;
-import com.torqmind.ops.shared.api.ForbiddenException;
+import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import com.torqmind.ops.shared.media.MediaSignatures;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +46,7 @@ public class RoutineService {
     private final TaskAttachmentRepository attachmentRepository;
     private final TaskCommentRepository commentRepository;
     private final UserRepository userRepository;
-    private final TenantResolver tenantResolver;
+    private final TenantAccessService tenantAccessService;
 
     public RoutineService(
             RoutineTemplateRepository templateRepository,
@@ -56,7 +56,7 @@ public class RoutineService {
             TaskAttachmentRepository attachmentRepository,
             TaskCommentRepository commentRepository,
             UserRepository userRepository,
-            TenantResolver tenantResolver
+            TenantAccessService tenantAccessService
     ) {
         this.templateRepository = templateRepository;
         this.runRepository = runRepository;
@@ -65,7 +65,7 @@ public class RoutineService {
         this.attachmentRepository = attachmentRepository;
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
-        this.tenantResolver = tenantResolver;
+        this.tenantAccessService = tenantAccessService;
     }
 
     public List<RoutineTemplate> listTemplates(Long companyId) {
@@ -73,15 +73,15 @@ public class RoutineService {
     }
 
     @Transactional
-    public void deactivateTemplate(Long templateId) {
-        RoutineTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new IllegalArgumentException("Rotina não encontrada."));
+    public void deactivateTemplate(Long templateId, AppUserPrincipal me) {
+        RoutineTemplate template = tenantAccessService.requireTemplateAccess(me, templateId);
         template.setActive(false);
         templateRepository.save(template);
     }
 
     @Transactional
     public RoutineTemplate createTemplate(RoutineTemplate template, UUID actor) {
+        tenantAccessService.requireBranchInCompany(template.getCompanyId(), template.getBranchId());
         template.setCreatedBy(actor);
         template.setCreatedAt(Instant.now());
         return templateRepository.save(template);
@@ -101,9 +101,18 @@ public class RoutineService {
     }
 
     @Transactional
-    public RoutineRun generateRun(Long templateId, Instant scheduledFor, Instant dueAt, UUID assignedUserId, UUID actor) {
-        RoutineTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new IllegalArgumentException("Rotina não encontrada."));
+    public RoutineRun generateRun(
+            Long templateId,
+            Instant scheduledFor,
+            Instant dueAt,
+            UUID assignedUserId,
+            AppUserPrincipal me
+    ) {
+        RoutineTemplate template = tenantAccessService.requireTemplateAccess(me, templateId);
+        if (assignedUserId != null) {
+            tenantAccessService.requireTargetUser(template.getCompanyId(), template.getBranchId(), assignedUserId);
+        }
+        UUID actor = me.userId();
 
         RoutineRun run = new RoutineRun();
         run.setTemplateId(template.getId());
@@ -128,39 +137,33 @@ public class RoutineService {
     }
 
     @Transactional
-    public RoutineRun transition(Long runId, RoutineStatus next, String comment, UUID actor) {
-        RoutineRun run = runRepository.findById(runId)
-                .orElseThrow(() -> new IllegalArgumentException("Execução não encontrada."));
-
-        User actorUser = userRepository.findById(actor)
-                .orElseThrow(() -> new ForbiddenException("Usuário inválido."));
-        tenantResolver.assertCanAccess(
-                actorUser.getRole(), actorUser.getCompanyId(), actorUser.getBranchId(),
-                run.getCompanyId(), run.getBranchId());
-
-        if ((next == RoutineStatus.EM_ANDAMENTO || next == RoutineStatus.CONCLUIDA)
-                && run.getAssignedUserId() != null
-                && !run.getAssignedUserId().equals(actor)
-                && !"MASTER".equalsIgnoreCase(actorUser.getRole())) {
-            throw new ForbiddenException("Somente o responsável pode iniciar ou concluir esta tarefa.");
-        }
+    public RoutineRun transition(Long runId, RoutineStatus next, String comment, AppUserPrincipal me) {
+        RoutineRun run = tenantAccessService.requireRoutineRunAccess(me, runId);
+        UUID actor = me.userId();
 
         if (!StatusRules.canTransitionRoutine(run.getStatus(), next)) {
             throw new IllegalArgumentException("Transição de status de rotina inválida.");
+        }
+
+        if (next == RoutineStatus.EM_ANDAMENTO || next == RoutineStatus.CONCLUIDA) {
+            tenantAccessService.requireRoutineExecutor(me, run);
         }
 
         RoutineTemplate template = templateRepository.findById(run.getTemplateId()).orElse(null);
         if (next == RoutineStatus.CONCLUIDA && template != null && template.isRequiresComment()) {
             boolean hasInline = (comment != null && !comment.isBlank())
                     || (run.getExecutionComment() != null && !run.getExecutionComment().isBlank());
-            boolean hasThreadComment = commentRepository.countByTaskTypeAndTaskId(TaskType.ROUTINE_RUN.name(), run.getId()) > 0;
+            boolean hasThreadComment = run.getAssignedUserId() == null
+                    ? commentRepository.countByTaskTypeAndTaskId(TaskType.ROUTINE_RUN.name(), run.getId()) > 0
+                    : commentRepository.countByTaskTypeAndTaskIdAndAuthorUserId(
+                            TaskType.ROUTINE_RUN.name(), run.getId(), run.getAssignedUserId()) > 0;
             if (!hasInline && !hasThreadComment) {
-                throw new IllegalArgumentException("Esta rotina exige um comentário para ser concluída.");
+                throw new IllegalArgumentException("Esta rotina exige um comentário do responsável para ser concluída.");
             }
         }
         if (next == RoutineStatus.CONCLUIDA && template != null && template.isRequiresPhoto()
-                && !hasValidPhoto(TaskType.ROUTINE_RUN, run.getId())) {
-            throw new IllegalArgumentException("Esta rotina exige ao menos uma foto para ser concluída.");
+                && !hasValidPhoto(TaskType.ROUTINE_RUN, run.getId(), run.getAssignedUserId())) {
+            throw new IllegalArgumentException("Esta rotina exige ao menos uma foto do responsável para ser concluída.");
         }
 
         Instant now = Instant.now();
@@ -196,10 +199,9 @@ public class RoutineService {
     }
 
     @Transactional
-    public int generateNow(Long templateId, UUID actor) {
-        RoutineTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new IllegalArgumentException("Rotina nao encontrada."));
-        return generateRunsForTemplate(template, actor);
+    public int generateNow(Long templateId, AppUserPrincipal me) {
+        RoutineTemplate template = tenantAccessService.requireTemplateAccess(me, templateId);
+        return generateRunsForTemplate(template, me.userId());
     }
 
     // ---- Criacao direta de tarefa (recorrente ou unica), com alvo e janela de horario ----
@@ -228,11 +230,21 @@ public class RoutineService {
     ) {
         String rec = normalizeRecurrence(recurrence);
         String target = normalizeTarget(targetType);
+        if (companyId == null) {
+            throw new IllegalArgumentException("Informe a empresa.");
+        }
+        tenantAccessService.requireBranchInCompany(companyId, branchId);
         if ("USER".equals(target) && targetUserId == null) {
             throw new IllegalArgumentException("Selecione o usuario responsavel.");
         }
+        if ("USER".equals(target)) {
+            tenantAccessService.requireTargetUser(companyId, branchId, targetUserId);
+        }
         if ("SECTOR".equals(target) && targetSectorId == null) {
             throw new IllegalArgumentException("Selecione o setor.");
+        }
+        if ("SECTOR".equals(target)) {
+            tenantAccessService.requireTargetSector(companyId, branchId, targetSectorId);
         }
         if (startTime == null || dueTime == null) {
             throw new IllegalArgumentException("Informe o horario de inicio e de vencimento.");
@@ -260,7 +272,7 @@ public class RoutineService {
         boolean onlyBusiness = businessDaysOnly && ("MONTHLY".equals(rec) || "CUSTOM".equals(rec));
 
         RoutineTemplate template = new RoutineTemplate();
-        template.setCompanyId(companyId == null ? 1L : companyId);
+        template.setCompanyId(companyId);
         template.setBranchId(branchId);
         template.setTitle(title);
         template.setDescription(description);
@@ -559,8 +571,9 @@ public class RoutineService {
         };
     }
 
-    private boolean hasValidPhoto(TaskType type, Long taskId) {
+    private boolean hasValidPhoto(TaskType type, Long taskId, UUID assignedUserId) {
         return attachmentRepository.findByTaskTypeAndTaskIdOrderByCreatedAt(type.name(), taskId).stream()
-                .anyMatch(a -> MediaSignatures.isImage(a.getMimeType()));
+                .anyMatch(a -> MediaSignatures.isImage(a.getMimeType())
+                        && (assignedUserId == null || assignedUserId.equals(a.getUploadedBy())));
     }
 }

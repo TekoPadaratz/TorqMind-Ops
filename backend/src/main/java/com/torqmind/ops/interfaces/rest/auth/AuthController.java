@@ -27,6 +27,7 @@ public class AuthController {
         AuthService.LoginResult result = authService.login(request.username(), request.password());
         return new LoginResponse(
                 result.token(),
+                result.userId().toString(),
                 result.username(),
                 result.fullName(),
                 result.role(),
@@ -53,6 +54,7 @@ public class AuthController {
 
     public record LoginResponse(
             String token,
+            String userId,
             String username,
             String fullName,
             String role,

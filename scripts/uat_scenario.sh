@@ -3,6 +3,8 @@
 # Uso: BASE=http://localhost:88 ./scripts/uat_scenario.sh
 set -u
 BASE="${BASE:-http://localhost:88}"
+MASTER_USER="${MASTER_USER:?Informe MASTER_USER}"
+MASTER_PASSWORD="${MASTER_PASSWORD:?Informe MASTER_PASSWORD}"
 PASS=0; FAIL=0
 GER_PWD='Gerente@123'; OP_PWD='Operador@123'
 
@@ -29,11 +31,13 @@ notif_count() { req GET /api/notifications "$1"; echo "$BODY" | python3 -c "impo
 python3 -c "import base64;open('/tmp/uat.png','wb').write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='))"
 
 echo "===================== SETUP (dono cadastra equipe) ====================="
-TEKO=$(login teko '@Crmjr105')
-[ -n "$TEKO" ] && { echo "PASS | dono (teko) autenticado"; PASS=$((PASS+1)); } || { echo "FAIL | login teko"; FAIL=$((FAIL+1)); }
-req POST /api/admin/users "$TEKO" "{\"username\":\"carlos.gerente\",\"fullName\":\"Carlos Gerente\",\"role\":\"MANAGER\",\"password\":\"$GER_PWD\",\"companyId\":1}"; check2 "cadastrar gerente Carlos" 200 422 "$STATUS"
-req POST /api/admin/users "$TEKO" "{\"username\":\"ana.gerente\",\"fullName\":\"Ana Gerente\",\"role\":\"MANAGER\",\"password\":\"$GER_PWD\",\"companyId\":1}"; check2 "cadastrar gerente Ana" 200 422 "$STATUS"
-req POST /api/admin/users "$TEKO" "{\"username\":\"roberto.manutencao\",\"fullName\":\"Roberto Manutencao\",\"role\":\"OPERATOR\",\"password\":\"$OP_PWD\",\"companyId\":1}"; check2 "cadastrar operador Roberto" 200 422 "$STATUS"
+TEKO=$(login "$MASTER_USER" "$MASTER_PASSWORD")
+[ -n "$TEKO" ] && { echo "PASS | administrador autenticado"; PASS=$((PASS+1)); } || { echo "FAIL | login MASTER"; FAIL=$((FAIL+1)); }
+req GET '/api/catalog/branches?companyId=1' "$TEKO"
+BRANCH_ID=$(echo "$BODY" | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['id'])")
+req POST /api/admin/users "$TEKO" "{\"username\":\"carlos.gerente\",\"fullName\":\"Carlos Gerente\",\"role\":\"MANAGER\",\"password\":\"$GER_PWD\",\"companyId\":1,\"branchId\":$BRANCH_ID}"; check2 "cadastrar gerente Carlos" 200 422 "$STATUS"
+req POST /api/admin/users "$TEKO" "{\"username\":\"ana.gerente\",\"fullName\":\"Ana Gerente\",\"role\":\"MANAGER\",\"password\":\"$GER_PWD\",\"companyId\":1,\"branchId\":$BRANCH_ID}"; check2 "cadastrar gerente Ana" 200 422 "$STATUS"
+req POST /api/admin/users "$TEKO" "{\"username\":\"roberto.manutencao\",\"fullName\":\"Roberto Manutencao\",\"role\":\"OPERATOR\",\"password\":\"$OP_PWD\",\"companyId\":1,\"branchId\":$BRANCH_ID}"; check2 "cadastrar operador Roberto" 200 422 "$STATUS"
 req GET /api/admin/users "$TEKO"
 CARLOS_ID=$(echo "$BODY" | python3 -c "import sys,json;print(next(u['id'] for u in json.load(sys.stdin) if u['username']=='carlos.gerente'))")
 ROBERTO_ID=$(echo "$BODY" | python3 -c "import sys,json;print(next(u['id'] for u in json.load(sys.stdin) if u['username']=='roberto.manutencao'))")
@@ -95,4 +99,9 @@ OFS=$(echo "$BODY" | python3 -c "import sys,json;print(json.load(sys.stdin)['sum
 
 echo "==================================================="
 echo "RESULTADO UAT: PASS=$PASS FAIL=$FAIL"
-[ "$FAIL" -eq 0 ] && echo "STATUS FINAL: OK" || echo "STATUS FINAL: FALHAS"
+if [ "$FAIL" -eq 0 ]; then
+  echo "STATUS FINAL: OK"
+  exit 0
+fi
+echo "STATUS FINAL: FALHAS"
+exit 1

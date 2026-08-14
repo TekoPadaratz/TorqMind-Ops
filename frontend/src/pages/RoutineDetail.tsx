@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiGet, apiPost, apiUpload } from '../api';
+import { useAuth } from '../auth';
 import { Thread } from '../components/Thread';
 
 const ROUTINE_ACTIONS: Record<string, Array<{ label: string; status: string }>> = {
@@ -18,9 +19,18 @@ const ROUTINE_ACTIONS: Record<string, Array<{ label: string; status: string }>> 
   ]
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  PENDENTE: 'Pendente',
+  EM_ANDAMENTO: 'Em andamento',
+  CONCLUIDA: 'Concluída',
+  ATRASADA: 'Atrasada',
+  REJEITADA: 'Rejeitada'
+};
+
 export default function RoutineDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [detail, setDetail] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,10 +60,13 @@ export default function RoutineDetail() {
   }
 
   async function onComment(text: string) {
+    setError(null);
     setBusy(true);
     try {
       await apiPost(`/routines/runs/${id}/comments`, { body: text });
       await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao adicionar comentário');
     } finally {
       setBusy(false);
     }
@@ -76,6 +89,19 @@ export default function RoutineDetail() {
 
   const s = detail.summary;
   const actions = ROUTINE_ACTIONS[s.status] || [];
+  const isAssignedExecutor = !s.assignee || session?.userId === s.assignee.id;
+  const hasPhoto = detail.attachments.some((attachment: any) =>
+    String(attachment.mimeType).startsWith('image/')
+      && (!s.assignee || attachment.uploadedBy?.id === s.assignee.id)
+  );
+  const hasComment = detail.comments.some((comment: any) =>
+    !s.assignee || comment.author?.id === s.assignee.id
+  ) || Boolean(s.executionComment?.trim());
+  const missingRequirements = [
+    s.requiresPhoto && !hasPhoto ? 'uma foto' : null,
+    s.requiresComment && !hasComment ? 'um comentário' : null
+  ].filter(Boolean);
+  const canComplete = missingRequirements.length === 0;
 
   return (
     <div className="page">
@@ -85,7 +111,9 @@ export default function RoutineDetail() {
       <section className="card">
         <div className="detail-head">
           <h2>{s.title}</h2>
-          <span className={`chip status-${String(s.status).toLowerCase()}`}>{s.status}</span>
+          <span className={`chip status-${String(s.status).toLowerCase()}`}>
+            {STATUS_LABEL[s.status] ?? s.status}
+          </span>
         </div>
         {s.description && <p className="muted">{s.description}</p>}
         <div className="detail-meta">
@@ -95,13 +123,27 @@ export default function RoutineDetail() {
           <Meta label="Concluída" value={s.completedAt ? new Date(s.completedAt).toLocaleString() : '—'} />
         </div>
         <div className="requirements">
-          {s.requiresPhoto && <span className="chip req">Exige foto</span>}
-          {s.requiresComment && <span className="chip req">Exige comentário</span>}
+          {s.requiresPhoto && <span className="chip req">{hasPhoto ? 'Foto anexada' : 'Foto pendente'}</span>}
+          {s.requiresComment && <span className="chip req">{hasComment ? 'Comentário registrado' : 'Comentário pendente'}</span>}
         </div>
+        {!canComplete && (
+          <p className="muted small">Para concluir, registre {missingRequirements.join(' e ')}.</p>
+        )}
+        {!isAssignedExecutor && actions.some((action) => action.status === 'EM_ANDAMENTO' || action.status === 'CONCLUIDA') && (
+          <p className="muted small">Somente o responsável pode iniciar ou concluir esta tarefa.</p>
+        )}
         {actions.length > 0 && (
           <div className="actions detail-actions">
             {actions.map((a) => (
-              <button key={a.status} className="btn-primary" disabled={busy} onClick={() => transition(a.status)}>
+              <button
+                key={a.status}
+                className="btn-primary"
+                disabled={busy
+                  || ((a.status === 'EM_ANDAMENTO' || a.status === 'CONCLUIDA') && !isAssignedExecutor)
+                  || (a.status === 'CONCLUIDA' && !canComplete)}
+                title={a.status === 'CONCLUIDA' && !canComplete ? `Falta ${missingRequirements.join(' e ')}` : undefined}
+                onClick={() => transition(a.status)}
+              >
                 {a.label}
               </button>
             ))}

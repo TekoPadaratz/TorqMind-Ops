@@ -10,6 +10,8 @@ import com.torqmind.ops.domain.task.TaskType;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -83,8 +85,11 @@ public class RoutineController {
 
     @PreAuthorize("hasAnyRole('MASTER','OWNER')")
     @DeleteMapping("/templates/{id}")
-    public Map<String, Object> deactivateTemplate(@PathVariable Long id) {
-        routineService.deactivateTemplate(id);
+    public Map<String, Object> deactivateTemplate(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        routineService.deactivateTemplate(id, me);
         return Map.of("id", id, "active", false);
     }
 
@@ -121,7 +126,7 @@ public class RoutineController {
 
     @PostMapping("/templates/{id}/generate")
     public Map<String, Object> generateNow(@PathVariable Long id, @AuthenticationPrincipal AppUserPrincipal me) {
-        return Map.of("generated", routineService.generateNow(id, me.userId()));
+        return Map.of("generated", routineService.generateNow(id, me));
     }
 
     @GetMapping("/runs/{id}")
@@ -138,7 +143,7 @@ public class RoutineController {
             @Valid @RequestBody CommentRequest request,
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
-        return taskDetailService.addComment(TaskType.ROUTINE_RUN, id, me.userId(), request.body());
+        return taskDetailService.addComment(TaskType.ROUTINE_RUN, id, me, request.body());
     }
 
     @PostMapping("/runs/{id}/attachments")
@@ -148,8 +153,8 @@ public class RoutineController {
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
         try {
-            return taskDetailService.addAttachment(TaskType.ROUTINE_RUN, id, me.userId(),
-                    file.getOriginalFilename(), file.getContentType(), file.getBytes());
+            return taskDetailService.addAttachment(TaskType.ROUTINE_RUN, id, me,
+                    file.getOriginalFilename(), file.getBytes());
         } catch (IOException ex) {
             throw new IllegalArgumentException("Falha ao ler o arquivo enviado.");
         }
@@ -172,7 +177,7 @@ public class RoutineController {
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
         UUID assigned = parseUuid(request.assignedUserId());
-        return routineService.generateRun(request.templateId(), request.scheduledFor(), request.dueAt(), assigned, me.userId());
+        return routineService.generateRun(request.templateId(), request.scheduledFor(), request.dueAt(), assigned, me);
     }
 
     @PostMapping("/runs/{id}/transition")
@@ -181,7 +186,7 @@ public class RoutineController {
             @Valid @RequestBody TransitionRequest request,
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
-        return routineService.transition(id, request.status(), request.comment(), me.userId());
+        return routineService.transition(id, request.status(), request.comment(), me);
     }
 
     private static UUID parseUuid(String value) {
@@ -194,7 +199,7 @@ public class RoutineController {
     public record CreateTemplateRequest(
             Long companyId,
             Long branchId,
-            @NotBlank String title,
+            @NotBlank @Size(max = 180) String title,
             String description,
             @NotBlank String recurrenceRule,
             Boolean requiresPhoto,
@@ -205,7 +210,7 @@ public class RoutineController {
     public record CreateTaskRequest(
             Long companyId,
             Long branchId,
-            @NotBlank String title,
+            @NotBlank @Size(max = 180) String title,
             String description,
             @NotBlank String recurrence,
             @NotBlank String targetType,
@@ -233,7 +238,7 @@ public class RoutineController {
     ) {
     }
 
-    public record TransitionRequest(RoutineStatus status, String comment) {
+    public record TransitionRequest(@NotNull RoutineStatus status, String comment) {
     }
 
     public record CommentRequest(@NotBlank String body) {

@@ -183,7 +183,7 @@ public class VoiceCommandExecutor {
         occurrence.setTitle(intent.getTitle());
         occurrence.setDescription(intent.getDescription());
         occurrence.setPriority(intent.getOccurrencePriority() == null ? "MEDIA" : intent.getOccurrencePriority());
-        Occurrence saved = occurrenceService.open(occurrence, me.userId());
+        Occurrence saved = occurrenceService.open(occurrence, me);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("entityType", "OCCURRENCE");
         out.put("entityId", saved.getId());
@@ -196,7 +196,7 @@ public class VoiceCommandExecutor {
         if (resolved.getRunId() == null) {
             throw new IllegalArgumentException("Tarefa não identificada.");
         }
-        RoutineRun run = routineService.transition(resolved.getRunId(), status, comment, me.userId());
+        RoutineRun run = routineService.transition(resolved.getRunId(), status, comment, me);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("entityType", "ROUTINE_RUN");
         out.put("entityId", run.getId());
@@ -211,7 +211,7 @@ public class VoiceCommandExecutor {
 
     private Map<String, Object> reject(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
         if (resolved.getOccurrenceId() != null) {
-            Occurrence occ = occurrenceService.transition(resolved.getOccurrenceId(), OccurrenceStatus.REJEITADA, intent.getComment(), me.userId());
+            Occurrence occ = occurrenceService.transition(resolved.getOccurrenceId(), OccurrenceStatus.REJEITADA, intent.getComment(), me);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("entityType", "OCCURRENCE");
             out.put("entityId", occ.getId());
@@ -228,7 +228,7 @@ public class VoiceCommandExecutor {
         if (id == null) {
             throw new IllegalArgumentException("Tarefa não identificada.");
         }
-        taskDetailService.addComment(type, id, me.userId(), intent.getComment());
+        taskDetailService.addComment(type, id, me, intent.getComment());
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("entityType", type.name());
         out.put("entityId", id);
