@@ -1,3 +1,4 @@
+import { qualityAnalysisPath } from '../fuel';
 import { describe, expect, it } from 'vitest';
 import { browserSpeechRecognitionConstructor, browserSpeechRecognitionSupported, taskContextFromPath } from './voice';
 
@@ -13,6 +14,14 @@ describe('taskContextFromPath', () => {
       currentTaskId: 3
     });
     expect(taskContextFromPath('/routines')).toEqual({});
+    expect(taskContextFromPath('/occurrences/new/fuel-quality')).toEqual({});
+  });
+});
+
+describe('quality analysis route', () => {
+  it('keeps fuel as a query param', () => {
+    expect(qualityAnalysisPath('DIESEL_S10')).toBe('/occurrences/new/fuel-quality?fuel=DIESEL_S10');
+    expect(qualityAnalysisPath()).toBe('/occurrences/new/fuel-quality');
   });
 });
 

@@ -19,9 +19,14 @@ Estados: `PROCESSING | NEEDS_INPUT | READY_FOR_CONFIRMATION | CONFIRMED | CANCEL
 
 Campos conhecidos (extras rejeitados):
 
-`schemaVersion, action, transcript, taskReference, title, description, companyReference, branchReference, cityReference, targetType, targetUserReference, targetSectorReference, recurrence, scheduledDate, startTime, dueTime, reminderBeforeMinutes, requiresPhoto, requiresComment, comment, occurrencePriority, requestedStatus, missingFields, ambiguities, warnings, confidence, requiresConfirmation`
+`schemaVersion, action, transcript, taskReference, title, description, companyReference, branchReference, cityReference, targetType, targetUserReference, targetSectorReference, recurrence, scheduledDate, startTime, dueTime, reminderBeforeMinutes, requiresPhoto, requiresComment, comment, occurrencePriority, fuel, requestedStatus, missingFields, ambiguities, warnings, confidence, requiresConfirmation`
 
-Ações: `CREATE_TASK | CREATE_OCCURRENCE | START_TASK | ADD_COMMENT | COMPLETE_TASK | REJECT_TASK | OPEN_TASK | LIST_TASKS`
+Ações: `CREATE_TASK | CREATE_OCCURRENCE | START_TASK | ADD_COMMENT | COMPLETE_TASK | REJECT_TASK | OPEN_TASK | OPEN_QUALITY_ANALYSIS | LIST_TASKS`
+
+`OPEN_QUALITY_ANALYSIS` só abre `/occurrences/new/fuel-quality` (query `fuel=` se falado). Não persiste ocorrência.
+
+`fuel`: `DIESEL_S10 | DIESEL_S500 | ETANOL | GASOLINA_ADITIVADA | GASOLINA_COMUM` (opcional)
+
 
 `targetType`: `USER | SECTOR | MANAGERS | ALL`  
 `recurrence`: `ONCE | DAILY | WEEKLY | MONTHLY | CUSTOM`  

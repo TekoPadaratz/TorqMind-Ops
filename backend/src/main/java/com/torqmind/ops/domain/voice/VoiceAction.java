@@ -8,5 +8,6 @@ public enum VoiceAction {
     COMPLETE_TASK,
     REJECT_TASK,
     OPEN_TASK,
+    OPEN_QUALITY_ANALYSIS,
     LIST_TASKS
 }

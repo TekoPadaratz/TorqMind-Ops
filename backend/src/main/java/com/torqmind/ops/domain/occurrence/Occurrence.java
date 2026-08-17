@@ -46,6 +46,19 @@ public class Occurrence {
     @Column(name = "assignee_user_id")
     private UUID assigneeUserId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = false)
+    private OccurrenceKind kind = OccurrenceKind.GENERIC;
+
+    @Column(name = "finalized_at")
+    private Instant finalizedAt;
+
+    @Column(name = "finalized_by")
+    private UUID finalizedBy;
+
+    @Column(name = "document_attachment_id")
+    private Long documentAttachmentId;
+
     @Column(name = "created_at")
     private Instant createdAt;
 
@@ -118,6 +131,38 @@ public class Occurrence {
 
     public void setAssigneeUserId(UUID assigneeUserId) {
         this.assigneeUserId = assigneeUserId;
+    }
+
+    public OccurrenceKind getKind() {
+        return kind == null ? OccurrenceKind.GENERIC : kind;
+    }
+
+    public void setKind(OccurrenceKind kind) {
+        this.kind = kind == null ? OccurrenceKind.GENERIC : kind;
+    }
+
+    public Instant getFinalizedAt() {
+        return finalizedAt;
+    }
+
+    public void setFinalizedAt(Instant finalizedAt) {
+        this.finalizedAt = finalizedAt;
+    }
+
+    public UUID getFinalizedBy() {
+        return finalizedBy;
+    }
+
+    public void setFinalizedBy(UUID finalizedBy) {
+        this.finalizedBy = finalizedBy;
+    }
+
+    public Long getDocumentAttachmentId() {
+        return documentAttachmentId;
+    }
+
+    public void setDocumentAttachmentId(Long documentAttachmentId) {
+        this.documentAttachmentId = documentAttachmentId;
     }
 
     public Instant getCreatedAt() {

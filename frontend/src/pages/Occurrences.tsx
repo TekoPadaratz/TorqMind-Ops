@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost, apiUpload } from '../api';
+import { qualityAnalysisPath } from '../fuel';
 
 type Occurrence = {
   id: number;
@@ -8,6 +9,11 @@ type Occurrence = {
   description: string;
   status: string;
   priority: string;
+  kind?: string;
+  fuelLabel?: string;
+  stationName?: string;
+  collectionDate?: string;
+  filledByName?: string;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -92,7 +98,10 @@ export default function Occurrences() {
 
       <section className="card">
         <h2>Nova ocorrência</h2>
-        <form onSubmit={create} className="stack">
+        <button type="button" className="btn-primary" onClick={() => navigate(qualityAnalysisPath())}>
+          Análise de qualidade no recebimento
+        </button>
+        <form onSubmit={create} className="stack" style={{ marginTop: 12 }}>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" required />
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descreva o problema" required />
           <select value={priority} onChange={(e) => setPriority(e.target.value)}>
@@ -173,10 +182,14 @@ export default function Occurrences() {
               <li key={item.id} className="clickable" onClick={() => navigate(`/occurrences/${item.id}`)}>
                 <div>
                   <strong>{item.title}</strong>
-                  <div className="muted small">{item.description}</div>
+                  <div className="muted small">
+                    {[item.stationName, item.collectionDate, item.filledByName].filter(Boolean).join(' · ') || item.description}
+                  </div>
                   <div className="chips">
                     <span className={`chip status-${item.status.toLowerCase()}`}>{STATUS_LABEL[item.status] ?? item.status}</span>
-                    <span className={`chip prio-${item.priority.toLowerCase()}`}>{item.priority}</span>
+                    {item.kind === 'FUEL_QUALITY_RECEIPT' && <span className="chip">Análise de qualidade</span>}
+                    {item.fuelLabel && <span className="chip">{item.fuelLabel}</span>}
+                    {item.kind !== 'FUEL_QUALITY_RECEIPT' && <span className={`chip prio-${item.priority.toLowerCase()}`}>{item.priority}</span>}
                   </div>
                 </div>
                 <span className="chevron">›</span>

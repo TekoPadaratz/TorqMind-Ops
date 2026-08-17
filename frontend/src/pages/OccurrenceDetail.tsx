@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiGet, apiPost, apiUpload } from '../api';
 import { Thread } from '../components/Thread';
+import { FuelQualityForm } from './FuelQualityOccurrence';
+import { openAttachment } from '../components/AuthMedia';
 
 const OCCURRENCE_ACTIONS: Record<string, Array<{ label: string; status: string }>> = {
   ABERTA: [
@@ -75,13 +77,17 @@ export default function OccurrenceDetail() {
   if (!detail) return <div className="page muted">Carregando...</div>;
 
   const s = detail.summary;
-  const actions = OCCURRENCE_ACTIONS[s.status] || [];
+  const actions = s.kind === 'FUEL_QUALITY_RECEIPT' ? [] : (OCCURRENCE_ACTIONS[s.status] || []);
+  const quality = s.kind === 'FUEL_QUALITY_RECEIPT';
 
   return (
     <div className="page">
       <button className="btn-ghost back" onClick={() => navigate(-1)}>← Voltar</button>
       {error && <div className="alert-error">{error}</div>}
 
+      {quality ? (
+        <FuelQualityForm occurrenceId={Number(id)} />
+      ) : (
       <section className="card">
         <div className="detail-head">
           <h2>{s.title}</h2>
@@ -104,6 +110,13 @@ export default function OccurrenceDetail() {
           </div>
         )}
       </section>
+      )}
+
+      {!quality && s.documentUrl && (
+        <button type="button" className="btn-ghost" onClick={() => openAttachment(s.documentUrl)}>
+          Abrir documento PDF
+        </button>
+      )}
 
       <Thread
         comments={detail.comments}

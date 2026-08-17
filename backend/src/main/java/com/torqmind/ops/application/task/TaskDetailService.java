@@ -220,7 +220,10 @@ public class TaskDetailService {
                 occ.getBranchId(),
                 ref(occ.getOpenedBy(), names),
                 ref(occ.getAssigneeUserId(), names),
-                occ.getCreatedAt()
+                occ.getCreatedAt(),
+                occ.getKind() == null ? "GENERIC" : occ.getKind().name(),
+                occ.getFinalizedAt(),
+                occ.getDocumentAttachmentId() == null ? null : "/api/attachments/" + occ.getDocumentAttachmentId()
         );
 
         return new TaskDetail(
@@ -379,7 +382,8 @@ public class TaskDetailService {
 
     public record OccurrenceSummary(
             Long id, String title, String description, String status, String priority,
-            Long branchId, UserRef openedBy, UserRef assignee, Instant createdAt) {}
+            Long branchId, UserRef openedBy, UserRef assignee, Instant createdAt,
+            String kind, Instant finalizedAt, String documentUrl) {}
 
     public record TaskDetail(String taskType, Object summary, List<CommentView> comments, List<AttachmentView> attachments, List<ActivityView> activities) {}
 

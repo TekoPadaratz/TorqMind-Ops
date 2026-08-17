@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
@@ -12,9 +12,9 @@ import Occurrences from './pages/Occurrences';
 import OccurrenceDetail from './pages/OccurrenceDetail';
 import Admin from './pages/Admin';
 import Notifications from './pages/Notifications';
+import VoiceSheet from './components/VoiceSheet';
+import FuelQualityOccurrencePage from './pages/FuelQualityOccurrence';
 import './styles.css';
-
-const VoiceSheet = lazy(() => import('./components/VoiceSheet'));
 
 function Shell() {
   const { session, logout } = useAuth();
@@ -102,19 +102,17 @@ function Shell() {
         <NavLink to="/occurrences">Ocorrências</NavLink>
         {isAdmin && <NavLink to="/admin">Gestão</NavLink>}
       </nav>
-      <button
-        type="button"
-        className="voice-fab"
-        onClick={() => setVoiceOpen(true)}
-        aria-label="Comando por voz"
-      >
-        🎤
-      </button>
-      {voiceOpen && (
-        <Suspense fallback={null}>
-          <VoiceSheet open={voiceOpen} onClose={() => setVoiceOpen(false)} />
-        </Suspense>
+      {!voiceOpen && (
+        <button
+          type="button"
+          className="voice-fab"
+          onClick={() => setVoiceOpen(true)}
+          aria-label="Comando por voz"
+        >
+          🎤
+        </button>
       )}
+      <VoiceSheet open={voiceOpen} onClose={() => setVoiceOpen(false)} />
     </div>
   );
 }
@@ -136,6 +134,7 @@ function App() {
             <Route path="/routines" element={<Routines />} />
             <Route path="/routines/:id" element={<RoutineDetail />} />
             <Route path="/occurrences" element={<Occurrences />} />
+            <Route path="/occurrences/new/fuel-quality" element={<FuelQualityOccurrencePage />} />
             <Route path="/occurrences/:id" element={<OccurrenceDetail />} />
             <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
             <Route path="/notifications" element={<Notifications />} />

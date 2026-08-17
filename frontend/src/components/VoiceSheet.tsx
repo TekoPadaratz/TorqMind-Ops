@@ -18,86 +18,127 @@ export default function VoiceSheet({ open, onClose }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const [status, setStatus] = useState<VoiceStatus | null>(null);
-  const [ui, setUi] = useState<VoiceUiState>('idle');
-  const [message, setMessage] = useState('');
+  const [ui, setUi] = useState<VoiceUiState>('consent');
+  const [message, setMessage] = useState('Preparando comando por voz…');
   const [seconds, setSeconds] = useState(0);
   const [transcript, setTranscript] = useState('');
   const [draft, setDraft] = useState<VoiceDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const recognizedTextRef = useRef('');
-  const submitOnEndRef = useRef(false);
+  const stoppingRef = useRef(false);
   const timerRef = useRef<number | null>(null);
+  const stopFallbackRef = useRef<number | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setUi('consent');
+    setMessage('Preparando comando por voz…');
+    setDraft(null);
+    setBusy(false);
+    setSeconds(0);
+    stoppingRef.current = false;
+    setStopping(false);
+    let cancelled = false;
     apiGet('/voice/status')
       .then((s) => {
+        if (cancelled) return;
         setStatus(s);
         if (!s.enabled) {
           setUi('error');
           setMessage('Comandos por voz estão desligados. Use a tela normalmente.');
         } else if (!browserSpeechRecognitionSupported() && !s.manualTranscriptAllowed) {
           setUi('unsupported');
+          setMessage('Este navegador não reconhece fala e o texto manual está desligado.');
         } else {
           setUi('consent');
           setMessage(browserSpeechRecognitionSupported()
-            ? 'Fale usando o reconhecimento do celular, sem consumir créditos da OpenAI.'
-            : 'Este navegador não oferece reconhecimento de fala. Digite o comando abaixo.');
+            ? 'Toque em Falar. Quando terminar, toque em Parar uma vez.'
+            : 'Este navegador não reconhece fala. Digite o comando abaixo.');
         }
       })
       .catch(() => {
+        if (cancelled) return;
         setUi('error');
         setMessage('Não foi possível verificar a voz. A tela tradicional continua disponível.');
       });
+    return () => {
+      cancelled = true;
+      hardStopRecognition();
+    };
   }, [open]);
 
-  useEffect(() => () => stopRecognition(false), []);
+  useEffect(() => () => hardStopRecognition(), []);
 
   function clearTimer() {
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
   }
 
-  function stopRecognition(submit: boolean) {
-    submitOnEndRef.current = submit;
+  function clearStopFallback() {
+    if (stopFallbackRef.current) window.clearTimeout(stopFallbackRef.current);
+    stopFallbackRef.current = null;
+  }
+
+  function hardStopRecognition() {
     clearTimer();
+    clearStopFallback();
     const recognition = recognitionRef.current;
+    recognitionRef.current = null;
     if (!recognition) return;
     try {
-      if (submit) recognition.stop();
-      else recognition.abort();
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.abort();
     } catch {
-      recognitionRef.current = null;
+      /* ignore */
     }
   }
 
   function reset() {
-    stopRecognition(false);
+    hardStopRecognition();
+    stoppingRef.current = false;
+    setStopping(false);
     setDraft(null);
     setTranscript('');
+    recognizedTextRef.current = '';
     setSeconds(0);
     setBusy(false);
-    setUi(status?.enabled ? 'consent' : 'error');
+    setUi(status?.enabled === false ? 'error' : 'consent');
+    setMessage(browserSpeechRecognitionSupported()
+      ? 'Toque em Falar. Quando terminar, toque em Parar uma vez.'
+      : 'Digite o comando abaixo.');
   }
 
   function startRecording() {
+    if (busy || stoppingRef.current || recognitionRef.current) return;
     const Recognition = browserSpeechRecognitionConstructor();
     if (!Recognition) {
       setUi('unsupported');
       setMessage('Este navegador não reconhece fala. Digite o comando abaixo.');
       return;
     }
+
+    hardStopRecognition();
+    stoppingRef.current = false;
+    recognizedTextRef.current = '';
+    setTranscript('');
+    setSeconds(0);
+    setMessage('Abrindo microfone…');
+
     try {
       const recognition = new Recognition();
       recognition.lang = 'pt-BR';
-      recognition.continuous = false;
+      // continuous=true: o botão Parar controla o fim (no celular, continuous=false ignora stop).
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
-      recognizedTextRef.current = '';
-      submitOnEndRef.current = true;
+
       recognition.onresult = (event) => {
+        if (stoppingRef.current) return;
         let text = '';
         for (let index = 0; index < event.results.length; index += 1) {
           text += event.results[index]?.[0]?.transcript ?? '';
@@ -105,52 +146,116 @@ export default function VoiceSheet({ open, onClose }: Props) {
         recognizedTextRef.current = text.trim();
         setTranscript(recognizedTextRef.current);
       };
+
       recognition.onerror = (event) => {
-        submitOnEndRef.current = false;
+        if (stoppingRef.current) return;
+        hardStopRecognition();
         const denied = event.error === 'not-allowed' || event.error === 'service-not-allowed';
+        const aborted = event.error === 'aborted';
+        if (aborted) return;
         setUi('error');
         setMessage(denied
           ? 'Permissão de microfone negada. Você pode digitar o comando.'
           : 'Não consegui reconhecer a fala. Tente novamente ou digite o comando.');
       };
+
       recognition.onend = () => {
-        clearTimer();
+        // Se o browser encerrar sozinho sem o usuário tocar em Parar, volta ao consentimento.
+        if (recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
-        const recognized = recognizedTextRef.current.trim();
-        if (submitOnEndRef.current && recognized) {
-          void sendRecognizedText(recognized);
-        } else if (submitOnEndRef.current) {
-          setUi('consent');
-          setMessage('Não ouvi um comando. Tente novamente ou digite abaixo.');
-        }
+        clearTimer();
+        if (stoppingRef.current) return;
+        setUi('consent');
+        setMessage(recognizedTextRef.current
+          ? 'Reconhecimento pausado. Toque em Falar de novo ou envie o texto.'
+          : 'Toque em Falar. Quando terminar, toque em Parar uma vez.');
       };
+
       recognitionRef.current = recognition;
       recognition.start();
-      setSeconds(0);
       setUi('recording');
-      setMessage('Ouvindo pelo celular… toque em parar quando terminar.');
+      setMessage('Ouvindo… toque em Parar quando terminar.');
       timerRef.current = window.setInterval(() => {
         setSeconds((s) => {
           const next = s + 1;
           if (next >= (status?.maxSeconds ?? 60)) {
-            stopRecognition(true);
+            stopRecording();
           }
           return next;
         });
       }, 1000);
     } catch {
+      hardStopRecognition();
       setUi('error');
       setMessage('Não foi possível abrir o reconhecimento de fala. Digite o comando abaixo.');
     }
   }
 
+  function finishWithTranscript(source: string) {
+    clearStopFallback();
+    const finalText = (recognizedTextRef.current || source || transcript).trim();
+    stoppingRef.current = false;
+    setStopping(false);
+    if (finalText) {
+      void sendRecognizedText(finalText);
+      return;
+    }
+    setBusy(false);
+    setUi('consent');
+    setMessage('Não ouvi um comando. Tente novamente ou digite abaixo.');
+  }
+
   function stopRecording() {
+    if (stoppingRef.current) return;
+    if (!recognitionRef.current && ui !== 'recording') return;
+
+    stoppingRef.current = true;
+    setStopping(true);
+    clearTimer();
+    setBusy(true);
+    setUi('processing');
     setMessage('Finalizando o reconhecimento…');
-    stopRecognition(true);
+
+    const snapshot = (recognizedTextRef.current || transcript).trim();
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+
+    if (recognition) {
+      try {
+        recognition.onresult = (event) => {
+          let text = '';
+          for (let index = 0; index < event.results.length; index += 1) {
+            text += event.results[index]?.[0]?.transcript ?? '';
+          }
+          if (text.trim()) recognizedTextRef.current = text.trim();
+        };
+        recognition.onerror = null;
+        recognition.onend = () => {
+          try { recognition.abort(); } catch { /* ignore */ }
+          finishWithTranscript(snapshot);
+        };
+        recognition.stop();
+      } catch {
+        try { recognition.abort(); } catch { /* ignore */ }
+        finishWithTranscript(snapshot);
+        return;
+      }
+    }
+
+    // Se o browser não disparar onend (comum no mobile), segue mesmo assim.
+    clearStopFallback();
+    stopFallbackRef.current = window.setTimeout(() => {
+      try { recognition?.abort(); } catch { /* ignore */ }
+      finishWithTranscript(snapshot);
+    }, 700);
   }
 
   function cancelRecording() {
-    stopRecognition(false);
+    stoppingRef.current = true;
+    setStopping(true);
+    hardStopRecognition();
+    stoppingRef.current = false;
+    setStopping(false);
     reset();
     onClose();
   }
@@ -162,6 +267,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
   async function sendRecognizedText(value: string) {
     const normalized = value.trim();
     if (!normalized) {
+      setBusy(false);
       setMessage('Digite o que você quer fazer.');
       return;
     }
@@ -257,7 +363,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
     const runId = draft.intent?.action === 'COMPLETE_TASK'
       ? (location.pathname.match(/\/routines\/(\d+)/) || [])[1]
       : null;
-      const entityType = draft.resultEntityType || draft.result?.entityType;
+    const entityType = draft.resultEntityType || draft.result?.entityType;
     const taskId = draft.resultEntityId || draft.result?.entityId || runId;
     if (!taskId) {
       setMessage('Abra a tarefa e anexe a foto pela tela, depois confirme de novo.');
@@ -280,6 +386,8 @@ export default function VoiceSheet({ open, onClose }: Props) {
   }
 
   async function cancelDraft() {
+    stoppingRef.current = true;
+    hardStopRecognition();
     if (draft) {
       try { await apiDelete(`/voice/drafts/${draft.id}`); } catch { /* ignore */ }
     }
@@ -293,6 +401,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
   const missing = intent?.missingFields || [];
   const ambiguities = intent?.ambiguities || [];
   const needsPhoto = missing.includes('photo');
+  const canType = ui === 'consent' || ui === 'error' || ui === 'unsupported' || ui === 'recording';
 
   return (
     <div className="voice-overlay" role="dialog" aria-modal="true" aria-labelledby="voice-title">
@@ -306,10 +415,10 @@ export default function VoiceSheet({ open, onClose }: Props) {
           <div className="voice-rec" aria-live="assertive">
             <span className="voice-dot" />
             <strong>{formatSec(seconds)}</strong>
-            <span className="muted small">gravando</span>
+            <span className="muted small">ouvindo</span>
           </div>
         )}
-        {(ui === 'consent' || ui === 'error' || ui === 'unsupported' || ui === 'recording') && (
+        {canType && (
           <textarea
             className="voice-text"
             placeholder="Ou digite: crie uma tarefa para o gerente João amanhã às 8, vencendo às 10…"
@@ -322,17 +431,25 @@ export default function VoiceSheet({ open, onClose }: Props) {
         {ui === 'consent' && (
           <div className="voice-actions">
             {browserSpeechRecognitionSupported() && (
-              <button type="button" className="btn-primary" onClick={startRecording}>Falar comando (grátis)</button>
+              <button type="button" className="btn-primary" onClick={startRecording} disabled={busy}>
+                Falar comando (grátis)
+              </button>
             )}
-            <button type="button" className="btn-ghost" onClick={sendText} disabled={busy}>Enviar texto</button>
+            <button type="button" className="btn-ghost" onClick={sendText} disabled={busy || !transcript.trim()}>
+              Enviar texto
+            </button>
           </div>
         )}
         {ui === 'unsupported' && (
-          <button type="button" className="btn-primary" onClick={sendText} disabled={busy}>Enviar texto</button>
+          <button type="button" className="btn-primary" onClick={sendText} disabled={busy || !transcript.trim()}>
+            Enviar texto
+          </button>
         )}
         {ui === 'recording' && (
           <div className="voice-actions">
-            <button type="button" className="btn-primary" onClick={stopRecording}>Parar</button>
+            <button type="button" className="btn-primary" onClick={stopRecording} disabled={stopping}>
+              Parar
+            </button>
             <button type="button" className="btn-ghost danger" onClick={cancelRecording}>Cancelar</button>
           </div>
         )}
@@ -340,6 +457,9 @@ export default function VoiceSheet({ open, onClose }: Props) {
         {(ui === 'preview' || ui === 'needs-input') && draft && (
           <div className="voice-preview">
             {intent?.transcript && <p className="small"><strong>Você disse:</strong> {intent.transcript}</p>}
+            {intent?.action && (
+              <p className="small muted">Ação: {intent.action === 'CREATE_TASK' ? 'Criar tarefa' : intent.action === 'CREATE_OCCURRENCE' ? 'Abrir ocorrência' : intent.action === 'OPEN_QUALITY_ANALYSIS' ? 'Abrir análise de qualidade (sem salvar)' : intent.action}</p>
+            )}
             {intent?.warnings?.map((w) => <p key={w} className="muted small">{w}</p>)}
             {ambiguities.map((a) => (
               <div key={a.field} className="voice-choices">
@@ -394,7 +514,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
         {ui === 'error' && (
           <div className="voice-actions">
             <button type="button" className="btn-primary" onClick={reset}>Tentar de novo</button>
-            <button type="button" className="btn-ghost" onClick={sendText} disabled={busy}>Enviar texto</button>
+            <button type="button" className="btn-ghost" onClick={sendText} disabled={busy || !transcript.trim()}>Enviar texto</button>
           </div>
         )}
       </div>

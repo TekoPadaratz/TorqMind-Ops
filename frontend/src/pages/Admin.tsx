@@ -1,8 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { apiGet, apiPost } from '../api';
+import { apiGet, apiPost, apiPut } from '../api';
 import { ROLE_OPTIONS_ADMIN, roleLabel } from '../roles';
+import { formatCep, formatCnpj, formatUf } from '../masks';
 
-type Option = { id: number; name: string };
+type Option = {
+  id: number;
+  name: string;
+  legalName?: string | null;
+  cnpj?: string | null;
+  address?: {
+    street?: string | null;
+    number?: string | null;
+    complement?: string | null;
+    neighborhood?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+  };
+};
 type UserRow = {
   id: string;
   username: string;
@@ -63,18 +78,28 @@ export default function Admin() {
       {ok && <div className="alert-ok">{ok}</div>}
 
       <CompanyForm
+        companies={companies}
         onCreated={async () => {
           await loadCompanies();
           flash('Empresa criada.');
+        }}
+        onUpdated={async () => {
+          await loadCompanies();
+          flash('Empresa atualizada.');
         }}
         onError={fail}
       />
 
       <BranchForm
         companies={companies}
+        branches={branches}
         onCreated={async (cid) => {
           if (cid === companyId) await loadScoped(cid);
           flash('Filial criada.');
+        }}
+        onUpdated={async (cid) => {
+          if (cid === companyId) await loadScoped(cid);
+          flash('Filial atualizada.');
         }}
         onError={fail}
       />
@@ -135,71 +160,204 @@ export default function Admin() {
   );
 }
 
-function CompanyForm({ onCreated, onError }: { onCreated: () => void; onError: (e: unknown) => void }) {
-  const [name, setName] = useState('');
+function emptyLegal() {
+  return {
+    name: '',
+    legalName: '',
+    cnpj: '',
+    addressStreet: '',
+    addressNumber: '',
+    addressComplement: '',
+    addressNeighborhood: '',
+    addressCity: '',
+    addressState: '',
+    addressPostalCode: ''
+  };
+}
+
+function fromOption(item?: Option | null) {
+  const legal = emptyLegal();
+  if (!item) return legal;
+  legal.name = item.name ?? '';
+  legal.legalName = item.legalName ?? '';
+  legal.cnpj = item.cnpj ?? '';
+  legal.addressStreet = item.address?.street ?? '';
+  legal.addressNumber = item.address?.number ?? '';
+  legal.addressComplement = item.address?.complement ?? '';
+  legal.addressNeighborhood = item.address?.neighborhood ?? '';
+  legal.addressCity = item.address?.city ?? '';
+  legal.addressState = item.address?.state ?? '';
+  legal.addressPostalCode = item.address?.postalCode ?? '';
+  return legal;
+}
+
+function LegalFields({
+  value,
+  onChange
+}: {
+  value: ReturnType<typeof emptyLegal>;
+  onChange: (next: ReturnType<typeof emptyLegal>) => void;
+}) {
+  function set<K extends keyof ReturnType<typeof emptyLegal>>(key: K, val: string) {
+    onChange({ ...value, [key]: val });
+  }
+  return (
+    <>
+      <input value={value.name} onChange={(e) => set('name', e.target.value)} placeholder="Nome de exibição" required />
+      <input value={value.legalName} onChange={(e) => set('legalName', e.target.value)} placeholder="Razão social" />
+      <input value={value.cnpj} onChange={(e) => set('cnpj', formatCnpj(e.target.value))} placeholder="CNPJ" inputMode="numeric" />
+      <div className="form-grid two">
+        <input value={value.addressStreet} onChange={(e) => set('addressStreet', e.target.value)} placeholder="Logradouro" />
+        <input value={value.addressNumber} onChange={(e) => set('addressNumber', e.target.value)} placeholder="Número" />
+        <input value={value.addressComplement} onChange={(e) => set('addressComplement', e.target.value)} placeholder="Complemento" />
+        <input value={value.addressNeighborhood} onChange={(e) => set('addressNeighborhood', e.target.value)} placeholder="Bairro" />
+        <input value={value.addressCity} onChange={(e) => set('addressCity', e.target.value)} placeholder="Cidade" />
+        <input value={value.addressState} onChange={(e) => set('addressState', formatUf(e.target.value))} placeholder="UF" />
+        <input value={value.addressPostalCode} onChange={(e) => set('addressPostalCode', formatCep(e.target.value))} placeholder="CEP" inputMode="numeric" />
+      </div>
+    </>
+  );
+}
+
+function CompanyForm({
+  companies,
+  onCreated,
+  onUpdated,
+  onError
+}: {
+  companies: Option[];
+  onCreated: () => void;
+  onUpdated: () => void;
+  onError: (e: unknown) => void;
+}) {
+  const [create, setCreate] = useState(emptyLegal());
+  const [editId, setEditId] = useState<number | ''>('');
+  const [edit, setEdit] = useState(emptyLegal());
+  useEffect(() => {
+    const selected = companies.find((c) => c.id === editId);
+    setEdit(fromOption(selected));
+  }, [editId, companies]);
   return (
     <section className="card">
-      <h2>Cadastrar empresa</h2>
+      <h2>Empresa</h2>
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
           try {
-            await apiPost('/admin/companies', { name });
-            setName('');
+            await apiPost('/admin/companies', create);
+            setCreate(emptyLegal());
             onCreated();
           } catch (err) {
             onError(err);
           }
         }}
       >
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome da empresa" required />
+        <LegalFields value={create} onChange={setCreate} />
         <button className="btn-primary" type="submit">Criar empresa</button>
       </form>
+      {companies.length > 0 && (
+        <form
+          className="stack"
+          style={{ marginTop: 16 }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (typeof editId !== 'number') return;
+            try {
+              await apiPut(`/admin/companies/${editId}`, edit);
+              onUpdated();
+            } catch (err) {
+              onError(err);
+            }
+          }}
+        >
+          <label className="field-label">Atualizar empresa
+            <select value={editId} onChange={(e) => setEditId(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Selecione</option>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          {typeof editId === 'number' && <LegalFields value={edit} onChange={setEdit} />}
+          {typeof editId === 'number' && <button className="btn-primary" type="submit">Salvar empresa</button>}
+        </form>
+      )}
     </section>
   );
 }
 
 function BranchForm({
   companies,
+  branches,
   onCreated,
+  onUpdated,
   onError
 }: {
   companies: Option[];
+  branches: Option[];
   onCreated: (companyId: number) => void;
+  onUpdated: (companyId: number) => void;
   onError: (e: unknown) => void;
 }) {
   const [companyId, setCompanyId] = useState<number | ''>('');
-  const [name, setName] = useState('');
+  const [create, setCreate] = useState(emptyLegal());
+  const [editId, setEditId] = useState<number | ''>('');
+  const [edit, setEdit] = useState(emptyLegal());
   useEffect(() => {
     if (companies.length && companyId === '') setCompanyId(companies[0].id);
   }, [companies]);
+  useEffect(() => {
+    setEdit(fromOption(branches.find((b) => b.id === editId)));
+  }, [editId, branches]);
   return (
     <section className="card">
-      <h2>Cadastrar filial</h2>
+      <h2>Filial / posto</h2>
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
           if (typeof companyId !== 'number') return;
           try {
-            await apiPost('/admin/branches', { companyId, name });
-            setName('');
+            await apiPost('/admin/branches', { companyId, ...create });
+            setCreate(emptyLegal());
             onCreated(companyId);
           } catch (err) {
             onError(err);
           }
         }}
       >
-        <label className="field-label">Empresa</label>
-        <select value={companyId} onChange={(e) => setCompanyId(Number(e.target.value))}>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome da filial" required />
+        <label className="field-label">Empresa
+          <select value={companyId} onChange={(e) => setCompanyId(Number(e.target.value))}>
+            {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </label>
+        <LegalFields value={create} onChange={setCreate} />
         <button className="btn-primary" type="submit">Criar filial</button>
       </form>
+      {branches.length > 0 && typeof companyId === 'number' && (
+        <form
+          className="stack"
+          style={{ marginTop: 16 }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (typeof editId !== 'number') return;
+            try {
+              await apiPut(`/admin/branches/${editId}`, { companyId, ...edit });
+              onUpdated(companyId);
+            } catch (err) {
+              onError(err);
+            }
+          }}
+        >
+          <label className="field-label">Atualizar posto
+            <select value={editId} onChange={(e) => setEditId(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Selecione</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
+          {typeof editId === 'number' && <LegalFields value={edit} onChange={setEdit} />}
+          {typeof editId === 'number' && <button className="btn-primary" type="submit">Salvar posto</button>}
+        </form>
+      )}
     </section>
   );
 }

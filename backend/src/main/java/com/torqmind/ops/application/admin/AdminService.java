@@ -12,6 +12,7 @@ import com.torqmind.ops.infrastructure.persistence.CompanyRepository;
 import com.torqmind.ops.infrastructure.persistence.SectorRepository;
 import com.torqmind.ops.infrastructure.persistence.UserRepository;
 import com.torqmind.ops.shared.api.ForbiddenException;
+import com.torqmind.ops.shared.documents.DocumentFormats;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -147,18 +148,37 @@ public class AdminService {
     }
 
     @Transactional
-    public Company createCompany(String name) {
+    public Company createCompany(
+            String name,
+            String legalName,
+            String cnpj,
+            PostalAddressRequest address
+    ) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Nome da empresa é obrigatório.");
         }
         Company company = new Company();
-        company.setName(name.trim());
+        applyLegal(company, name, legalName, cnpj, address);
         Company saved = companyRepository.save(company);
         return driveFolderService.ensureCompanyFolder(saved);
     }
 
     @Transactional
-    public Branch createBranch(Long companyId, String name) {
+    public Company updateCompany(
+            Long id,
+            String name,
+            String legalName,
+            String cnpj,
+            PostalAddressRequest address
+    ) {
+        Company company = companyRepository.findById(id == null ? -1L : id)
+                .orElseThrow(() -> new IllegalArgumentException("Empresa inválida."));
+        applyLegal(company, name, legalName, cnpj, address);
+        return companyRepository.save(company);
+    }
+
+    @Transactional
+    public Branch createBranch(Long companyId, String name, String legalName, String cnpj, PostalAddressRequest address) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Nome da filial é obrigatório.");
         }
@@ -166,8 +186,65 @@ public class AdminService {
                 .orElseThrow(() -> new IllegalArgumentException("Empresa inválida."));
         Branch branch = new Branch();
         branch.setCompanyId(company.getId());
-        branch.setName(name.trim());
+        applyLegal(branch, name, legalName, cnpj, address);
         Branch saved = branchRepository.save(branch);
         return driveFolderService.ensureBranchFolder(company, saved);
     }
+
+    @Transactional
+    public Branch updateBranch(Long id, String name, String legalName, String cnpj, PostalAddressRequest address) {
+        Branch branch = branchRepository.findById(id == null ? -1L : id)
+                .orElseThrow(() -> new IllegalArgumentException("Filial inválida."));
+        applyLegal(branch, name, legalName, cnpj, address);
+        return branchRepository.save(branch);
+    }
+
+    private void applyLegal(Company company, String name, String legalName, String cnpj, PostalAddressRequest address) {
+        if (name != null && !name.isBlank()) {
+            company.setName(name.trim());
+        }
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Nome da empresa é obrigatório.");
+        }
+        company.setLegalName(blankToNull(legalName));
+        company.setCnpj(DocumentFormats.cnpj(cnpj));
+        applyAddress(company.getAddress(), address);
+    }
+
+    private void applyLegal(Branch branch, String name, String legalName, String cnpj, PostalAddressRequest address) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Nome da filial é obrigatório.");
+        }
+        branch.setName(name.trim());
+        branch.setLegalName(blankToNull(legalName));
+        branch.setCnpj(DocumentFormats.cnpj(cnpj));
+        applyAddress(branch.getAddress(), address);
+    }
+
+    private void applyAddress(com.torqmind.ops.domain.company.PostalAddress target, PostalAddressRequest address) {
+        if (target == null || address == null) {
+            return;
+        }
+        target.setStreet(blankToNull(address.street()));
+        target.setNumber(blankToNull(address.number()));
+        target.setComplement(blankToNull(address.complement()));
+        target.setNeighborhood(blankToNull(address.neighborhood()));
+        target.setCity(blankToNull(address.city()));
+        target.setState(DocumentFormats.uf(address.state()));
+        target.setPostalCode(DocumentFormats.postalCode(address.postalCode()));
+    }
+
+    private static String blankToNull(String value) {
+        return DocumentFormats.blankToNull(value);
+    }
+
+    public record PostalAddressRequest(
+            String street,
+            String number,
+            String complement,
+            String neighborhood,
+            String city,
+            String state,
+            String postalCode
+    ) {}
 }

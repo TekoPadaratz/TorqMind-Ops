@@ -72,4 +72,24 @@ class VoiceCommandExecutorTest {
                 Mockito.eq(true), Mockito.eq(true), Mockito.any()
         );
     }
+
+    @Test
+    void openQualityAnalysisNavigatesWithoutSaving() {
+        OccurrenceService occurrenceService = Mockito.mock(OccurrenceService.class);
+        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+                Mockito.mock(RoutineService.class),
+                occurrenceService,
+                Mockito.mock(TaskDetailService.class),
+                Mockito.mock(TenantResolver.class),
+                Mockito.mock(RoutineRunRepository.class),
+                Mockito.mock(RoutineTemplateRepository.class)
+        );
+        VoiceIntent intent = new VoiceIntent();
+        intent.setAction("OPEN_QUALITY_ANALYSIS");
+        intent.setFuel("DIESEL_S10");
+        AppUserPrincipal me = new AppUserPrincipal(UUID.randomUUID(), "op", "OPERATOR", 1L, 2L);
+        Map<String, Object> result = executor.execute(me, intent, new VoiceResolved());
+        Assertions.assertEquals("/occurrences/new/fuel-quality?fuel=DIESEL_S10", result.get("navigateTo"));
+        Mockito.verifyNoInteractions(occurrenceService);
+    }
 }

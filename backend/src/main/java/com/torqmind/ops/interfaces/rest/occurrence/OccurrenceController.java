@@ -1,6 +1,7 @@
 package com.torqmind.ops.interfaces.rest.occurrence;
 
 import com.torqmind.ops.application.occurrence.OccurrenceService;
+import com.torqmind.ops.application.occurrence.FuelQualityAnalysisService;
 import com.torqmind.ops.application.task.TaskDetailService;
 import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.domain.occurrence.Occurrence;
@@ -15,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,28 +32,65 @@ import java.util.UUID;
 public class OccurrenceController {
 
     private final OccurrenceService occurrenceService;
+    private final FuelQualityAnalysisService fuelQualityAnalysisService;
     private final TaskDetailService taskDetailService;
     private final TenantResolver tenantResolver;
 
     public OccurrenceController(
             OccurrenceService occurrenceService,
+            FuelQualityAnalysisService fuelQualityAnalysisService,
             TaskDetailService taskDetailService,
             TenantResolver tenantResolver
     ) {
         this.occurrenceService = occurrenceService;
+        this.fuelQualityAnalysisService = fuelQualityAnalysisService;
         this.taskDetailService = taskDetailService;
         this.tenantResolver = tenantResolver;
     }
 
     @GetMapping
-    public List<Occurrence> list(
+    public List<FuelQualityAnalysisService.OccurrenceListItem> list(
             @AuthenticationPrincipal AppUserPrincipal me,
             @RequestParam(required = false) Long companyId,
             @RequestParam(required = false) OccurrenceStatus status
     ) {
         Long cid = tenantResolver.resolveListCompanyId(me, companyId);
         Long branchId = tenantResolver.branchFilterOrNull(me);
-        return occurrenceService.list(cid, branchId, status);
+        return fuelQualityAnalysisService.listItems(occurrenceService.list(cid, branchId, status));
+    }
+
+    @GetMapping("/quality-receipts/defaults")
+    public FuelQualityAnalysisService.QualityReceiptView qualityDefaults(
+            @AuthenticationPrincipal AppUserPrincipal me,
+            @RequestParam(required = false) Long companyId,
+            @RequestParam(required = false) Long branchId
+    ) {
+        return fuelQualityAnalysisService.defaults(me, companyId, branchId);
+    }
+
+    @PostMapping("/quality-receipts")
+    public FuelQualityAnalysisService.QualityReceiptView createQualityReceipt(
+            @RequestBody FuelQualityAnalysisService.QualityReceiptRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return fuelQualityAnalysisService.save(me, null, request);
+    }
+
+    @GetMapping("/{id}/quality-receipt")
+    public FuelQualityAnalysisService.QualityReceiptView qualityReceipt(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return fuelQualityAnalysisService.get(me, id);
+    }
+
+    @PutMapping("/{id}/quality-receipt")
+    public FuelQualityAnalysisService.QualityReceiptView updateQualityReceipt(
+            @PathVariable Long id,
+            @RequestBody FuelQualityAnalysisService.QualityReceiptRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return fuelQualityAnalysisService.save(me, id, request);
     }
 
     @PostMapping

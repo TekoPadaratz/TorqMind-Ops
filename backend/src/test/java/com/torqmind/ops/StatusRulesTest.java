@@ -1,5 +1,6 @@
 package com.torqmind.ops;
 
+import com.torqmind.ops.domain.occurrence.OccurrenceKind;
 import com.torqmind.ops.domain.ops.OccurrenceStatus;
 import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.ops.StatusRules;
@@ -28,5 +29,21 @@ class StatusRulesTest {
     @Test
     void blocksInvalidOccurrenceTransition() {
         Assertions.assertFalse(StatusRules.canTransitionOccurrence(OccurrenceStatus.ENCERRADA, OccurrenceStatus.EM_ATENDIMENTO));
+        Assertions.assertFalse(StatusRules.canTransitionOccurrence(
+                OccurrenceStatus.ABERTA, OccurrenceStatus.ENCERRADA));
+    }
+
+    @Test
+    void qualityReceiptCanFinalizeFromOpenAndCannotReopen() {
+        Assertions.assertTrue(StatusRules.canTransitionOccurrence(
+                OccurrenceStatus.ABERTA,
+                OccurrenceStatus.ENCERRADA,
+                OccurrenceKind.FUEL_QUALITY_RECEIPT));
+        Assertions.assertTrue(StatusRules.canEditQualityReceipt(OccurrenceStatus.ABERTA));
+        Assertions.assertFalse(StatusRules.canEditQualityReceipt(OccurrenceStatus.ENCERRADA));
+        Assertions.assertFalse(StatusRules.canTransitionOccurrence(
+                OccurrenceStatus.ENCERRADA,
+                OccurrenceStatus.ABERTA,
+                OccurrenceKind.FUEL_QUALITY_RECEIPT));
     }
 }

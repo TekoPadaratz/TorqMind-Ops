@@ -53,6 +53,7 @@ public class VoiceCommandExecutor {
         return switch (action) {
             case "CREATE_TASK" -> createTask(me, intent, resolved);
             case "CREATE_OCCURRENCE" -> createOccurrence(me, intent, resolved);
+            case "OPEN_QUALITY_ANALYSIS" -> openQualityAnalysis(intent);
             case "START_TASK" -> transitionRun(me, resolved, RoutineStatus.EM_ANDAMENTO, intent.getComment());
             case "COMPLETE_TASK" -> complete(me, intent, resolved);
             case "REJECT_TASK" -> reject(me, intent, resolved);
@@ -77,6 +78,9 @@ public class VoiceCommandExecutor {
                     + ".";
             case "CREATE_OCCURRENCE" -> "Abrir ocorrência \"" + nvl(intent.getTitle(), "") + "\""
                     + (resolved.getBranchName() != null ? " em " + resolved.getBranchName() : "") + ".";
+            case "OPEN_QUALITY_ANALYSIS" -> "Abrir a tela de análise de qualidade no recebimento"
+                    + (intent.getFuel() != null ? " (" + intent.getFuel() + ")" : "")
+                    + ", sem salvar.";
             case "START_TASK" -> "Iniciar \"" + nvl(resolved.getTaskTitle(), "a tarefa") + "\".";
             case "COMPLETE_TASK" -> "Concluir \"" + nvl(resolved.getTaskTitle(), "a tarefa") + "\".";
             case "REJECT_TASK" -> "Rejeitar \"" + nvl(resolved.getTaskTitle(), "a tarefa") + "\".";
@@ -189,6 +193,21 @@ public class VoiceCommandExecutor {
         out.put("entityId", saved.getId());
         out.put("message", "Ocorrência aberta.");
         out.put("navigateTo", "/occurrences/" + saved.getId());
+        return out;
+    }
+
+    private Map<String, Object> openQualityAnalysis(VoiceIntent intent) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        String path = "/occurrences/new/fuel-quality";
+        if (!blank(intent.getFuel())) {
+            path += "?fuel=" + intent.getFuel();
+        }
+        out.put("entityType", "OCCURRENCE_FORM");
+        out.put("message", "Abrir análise de qualidade no recebimento de combustível.");
+        out.put("navigateTo", path);
+        if (intent.getFuel() != null) {
+            out.put("fuel", intent.getFuel());
+        }
         return out;
     }
 

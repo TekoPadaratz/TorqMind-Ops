@@ -33,6 +33,8 @@ Acesso por ID de outra empresa/filial → 403. MASTER vê tudo.
 
 Abrir no tenant. Transições via `StatusRules`. Comentário/anexo pelos mesmos endpoints de detalhe.
 
+Tipo `FUEL_QUALITY_RECEIPT`: rascunho permanece `ABERTA`; o checkbox “Finalizar ocorrência ao salvar” vai a `ENCERRADA` (regra específica em `StatusRules`). Sem reprovação automática. Reabertura segue o fluxo genérico (hoje terminal). Snapshot do posto fica na análise.
+
 ## Notificações
 
 `notifyCounterpart(actor, recipient, …)` — nunca o actor. MASTER ativos recebem cópia (fase de testes). Marcar lidas não apaga.

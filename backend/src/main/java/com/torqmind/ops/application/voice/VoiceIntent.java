@@ -29,6 +29,7 @@ public class VoiceIntent {
     private Boolean requiresComment;
     private String comment;
     private String occurrencePriority;
+    private String fuel;
     private String requestedStatus;
     private List<String> missingFields = new ArrayList<>();
     private List<VoiceAmbiguity> ambiguities = new ArrayList<>();
@@ -78,6 +79,8 @@ public class VoiceIntent {
     public void setComment(String comment) { this.comment = comment; }
     public String getOccurrencePriority() { return occurrencePriority; }
     public void setOccurrencePriority(String occurrencePriority) { this.occurrencePriority = occurrencePriority; }
+    public String getFuel() { return fuel; }
+    public void setFuel(String fuel) { this.fuel = fuel; }
     public String getRequestedStatus() { return requestedStatus; }
     public void setRequestedStatus(String requestedStatus) { this.requestedStatus = requestedStatus; }
     public List<String> getMissingFields() { return missingFields; }

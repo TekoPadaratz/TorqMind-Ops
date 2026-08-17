@@ -5,7 +5,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 ## Módulos
 
 - Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`)
-- Ocorrências: (`ABERTA|EM_ATENDIMENTO|AGUARDANDO_VALIDACAO|ENCERRADA|REJEITADA`)
+- Ocorrências: (`ABERTA|EM_ATENDIMENTO|AGUARDANDO_VALIDACAO|ENCERRADA|REJEITADA`); tipo opcional `GENERIC | FUEL_QUALITY_RECEIPT` (análise de qualidade no recebimento; 1 recebimento = 1 ocorrência; rascunho `ABERTA`, finalização `ENCERRADA` + PDF no `StorageProvider`)
 - Catálogo: empresas, filiais, setores, usuários (sem MASTER na lista operacional)
 - Notificações: por destinatário; `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes)
 - Voz: rascunho → confirmação → mesmos serviços da UI
@@ -38,7 +38,7 @@ Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `tran
 
 ## Tabelas
 
-`companies`, `branches`, `sectors`, `auth_users`, `routine_templates`, `routine_runs`, `occurrences`, `notifications`, `task_comments`, `task_attachments`, `task_activities`, `voice_drafts` (V12)
+`companies`, `branches`, `sectors`, `auth_users`, `routine_templates`, `routine_runs`, `occurrences`, `fuel_quality_analyses` (V14), `notifications`, `task_comments`, `task_attachments`, `task_activities`, `voice_drafts` (V12)
 
 ## Auth
 

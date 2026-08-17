@@ -20,6 +20,7 @@ export type VoiceIntent = {
   startTime?: string;
   dueTime?: string;
   scheduledDate?: string;
+  fuel?: string;
   missingFields?: string[];
   ambiguities?: VoiceAmbiguity[];
   warnings?: string[];

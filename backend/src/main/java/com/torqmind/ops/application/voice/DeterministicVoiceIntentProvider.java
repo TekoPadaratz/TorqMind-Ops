@@ -1,5 +1,7 @@
 package com.torqmind.ops.application.voice;
 
+import com.torqmind.ops.domain.occurrence.FuelKind;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -43,7 +45,9 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.getWarnings().add("Trechos de instrução foram ignorados.");
         }
 
-        if (containsAny(low, "ocorrencia", "ocorrência")) {
+        if (looksLikeQualityAnalysis(low)) {
+            fillQualityAnalysis(intent, low);
+        } else if (containsAny(low, "ocorrencia", "ocorrência")) {
             fillOccurrence(intent, t, low);
         } else if (containsAny(low, "crie uma tarefa", "cria uma tarefa", "criar tarefa", "crie a tarefa", "toda segunda", "nos dias")) {
             fillCreateTask(intent, t, low);
@@ -83,7 +87,11 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.setAction("OPEN_TASK");
             fillTaskRef(intent, t, context);
         } else if (containsAny(low, "abra uma ocorr", "abrir ocorr")) {
-            fillOccurrence(intent, t, low);
+            if (looksLikeQualityAnalysis(low)) {
+                fillQualityAnalysis(intent, low);
+            } else {
+                fillOccurrence(intent, t, low);
+            }
         } else {
             intent.setAction("LIST_TASKS");
             intent.getWarnings().add("Não identifiquei a ação; mostrando tarefas para conferência.");
@@ -182,6 +190,29 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
                 intent.setDescription("Dias: " + days);
             }
         }
+    }
+
+    private static void fillQualityAnalysis(VoiceIntent intent, String low) {
+        intent.setAction("OPEN_QUALITY_ANALYSIS");
+        intent.setTitle("Análise de qualidade no recebimento de combustível");
+        FuelKind fuel = FuelKind.fromSpeech(low);
+        if (fuel != null) {
+            intent.setFuel(fuel.name());
+        }
+    }
+
+    private static boolean looksLikeQualityAnalysis(String low) {
+        return containsAny(low,
+                "ocorrência de registro de análise",
+                "ocorrencia de registro de analise",
+                "registro de análise",
+                "registro de analise",
+                "análise de qualidade",
+                "analise de qualidade",
+                "registrar análise de combustível",
+                "registrar analise de combustivel",
+                "análise de combustível",
+                "analise de combustivel");
     }
 
     private static void fillOccurrence(VoiceIntent intent, String t, String low) {
