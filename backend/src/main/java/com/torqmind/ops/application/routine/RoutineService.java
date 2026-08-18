@@ -375,6 +375,7 @@ public class RoutineService {
                         previous.name(), RoutineStatus.ATRASADA.name(), "Prazo expirado sem conclusao");
                 notificationService.notifyCounterpart(owner, assignee, "ROUTINE_RUN", run.getId(),
                         "Tarefa atrasada", title + " passou do prazo.");
+                escalateOverdue(run, assignee, title);
                 actions++;
             } else if (!run.isExpiryReminded() && run.getScheduledFor() != null) {
                 int remMin = run.getReminderBeforeMinutes() != null ? run.getReminderBeforeMinutes() : 30;
@@ -393,6 +394,26 @@ public class RoutineService {
             }
         }
         return actions;
+    }
+
+    private void escalateOverdue(RoutineRun run, UUID assignee, String title) {
+        if (run.getCompanyId() == null) {
+            return;
+        }
+        Set<UUID> targets = new LinkedHashSet<>();
+        if (run.getBranchId() != null) {
+            userRepository.findByCompanyIdAndBranchIdAndRoleIgnoreCaseAndActiveTrue(run.getCompanyId(), run.getBranchId(), "MANAGER")
+                    .forEach(u -> targets.add(u.getId()));
+        }
+        userRepository.findByCompanyIdAndRoleIgnoreCaseAndActiveTrue(run.getCompanyId(), "OWNER")
+                .forEach(u -> targets.add(u.getId()));
+        if (assignee != null) {
+            targets.remove(assignee);
+        }
+        for (UUID target : targets) {
+            notificationService.notifyCounterpart(assignee, target, "ROUTINE_RUN", run.getId(),
+                    "Rotina atrasada (escalonamento)", title + " passou do prazo e nao foi concluida.");
+        }
     }
 
     private int generateRunsForTemplate(RoutineTemplate template, UUID actor) {

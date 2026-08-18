@@ -21,6 +21,94 @@ const OCCURRENCE_ACTIONS: Record<string, Array<{ label: string; status: string }
   ]
 };
 
+function ToRoutineForm({ occurrenceId }: { occurrenceId: number }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [recurrence, setRecurrence] = useState('MONTHLY');
+  const [startTime, setStartTime] = useState('08:00');
+  const [dueTime, setDueTime] = useState('17:00');
+  const [weekday, setWeekday] = useState(1);
+  const [dayOfMonth, setDayOfMonth] = useState(1);
+  const [reminder, setReminder] = useState(15);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit() {
+    setErr(null);
+    setBusy(true);
+    try {
+      await apiPost(`/occurrences/${occurrenceId}/to-routine`, {
+        recurrence,
+        targetType: 'MANAGERS',
+        startTime,
+        dueTime,
+        weekday: recurrence === 'WEEKLY' ? weekday : null,
+        dayOfMonth: recurrence === 'MONTHLY' ? dayOfMonth : null,
+        reminderBeforeMinutes: reminder,
+        requiresPhoto: true,
+        requiresComment: true
+      });
+      navigate('/routines');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Falha ao transformar em rotina.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="btn-ghost" onClick={() => setOpen(true)}>
+        Transformar em rotina
+      </button>
+    );
+  }
+  return (
+    <section className="card">
+      <h3>Transformar em rotina</h3>
+      {err && <div className="alert-error">{err}</div>}
+      <label className="field-label">Recorrência
+        <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
+          <option value="DAILY">Diária</option>
+          <option value="WEEKLY">Semanal</option>
+          <option value="MONTHLY">Mensal</option>
+        </select>
+      </label>
+      {recurrence === 'WEEKLY' && (
+        <label className="field-label">Dia da semana
+          <select value={weekday} onChange={(e) => setWeekday(Number(e.target.value))}>
+            <option value={1}>Segunda</option>
+            <option value={2}>Terça</option>
+            <option value={3}>Quarta</option>
+            <option value={4}>Quinta</option>
+            <option value={5}>Sexta</option>
+            <option value={6}>Sábado</option>
+            <option value={7}>Domingo</option>
+          </select>
+        </label>
+      )}
+      {recurrence === 'MONTHLY' && (
+        <label className="field-label">Dia do mês
+          <input type="number" min={1} max={31} value={dayOfMonth} onChange={(e) => setDayOfMonth(Number(e.target.value))} />
+        </label>
+      )}
+      <label className="field-label">Início
+        <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+      </label>
+      <label className="field-label">Vencimento
+        <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} />
+      </label>
+      <label className="field-label">Lembrete (min antes)
+        <input type="number" min={0} max={1440} value={reminder} onChange={(e) => setReminder(Number(e.target.value))} />
+      </label>
+      <div className="voice-actions">
+        <button type="button" className="btn-primary" onClick={submit} disabled={busy}>Criar rotina (gerentes)</button>
+        <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Cancelar</button>
+      </div>
+    </section>
+  );
+}
+
 export default function OccurrenceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -111,6 +199,8 @@ export default function OccurrenceDetail() {
         )}
       </section>
       )}
+
+      {!quality && <ToRoutineForm occurrenceId={Number(id)} />}
 
       {!quality && s.documentUrl && (
         <button type="button" className="btn-ghost" onClick={() => openAttachment(s.documentUrl)}>

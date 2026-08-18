@@ -28,8 +28,8 @@ Ações: `CREATE_TASK | CREATE_OCCURRENCE | START_TASK | ADD_COMMENT | COMPLETE_
 `fuel`: `DIESEL_S10 | DIESEL_S500 | ETANOL | GASOLINA_ADITIVADA | GASOLINA_COMUM` (opcional)
 
 
-`targetType`: `USER | SECTOR | MANAGERS | ALL`  
-`recurrence`: `ONCE | DAILY | WEEKLY | MONTHLY | CUSTOM`  
+`targetType`: `USER | SECTOR | MANAGERS | ALL`
+`recurrence`: `ONCE | DAILY | WEEKLY | MONTHLY | CUSTOM`
 Datas/horas normalizadas em `America/Sao_Paulo`.
 
 ## Resolução

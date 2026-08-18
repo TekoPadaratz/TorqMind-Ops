@@ -53,11 +53,11 @@ export default function VoiceSheet({ open, onClose }: Props) {
         } else if (!browserSpeechRecognitionSupported() && !s.manualTranscriptAllowed) {
           setUi('unsupported');
           setMessage('Este navegador não reconhece fala e o texto manual está desligado.');
+        } else if (browserSpeechRecognitionSupported()) {
+          startRecording();
         } else {
           setUi('consent');
-          setMessage(browserSpeechRecognitionSupported()
-            ? 'Toque em Falar. Quando terminar, toque em Parar uma vez.'
-            : 'Este navegador não reconhece fala. Digite o comando abaixo.');
+          setMessage('Este navegador não reconhece fala. Digite o comando abaixo.');
         }
       })
       .catch(() => {
@@ -450,7 +450,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
           <div className="voice-actions">
             {browserSpeechRecognitionSupported() && (
               <button type="button" className="btn-primary" onClick={startRecording} disabled={busy}>
-                Falar comando (grátis)
+                Falar comando
               </button>
             )}
             <button type="button" className="btn-ghost" onClick={sendText} disabled={busy || !transcript.trim()}>

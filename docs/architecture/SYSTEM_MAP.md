@@ -4,7 +4,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 
 ## Módulos
 
-- Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`)
+- Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`); ao vencer sem conclusão vira `ATRASADA` e **escalona** (avisa responsável + gerentes da filial + donos)
 - Ocorrências: (`ABERTA|EM_ATENDIMENTO|AGUARDANDO_VALIDACAO|ENCERRADA|REJEITADA`); tipo opcional `GENERIC | FUEL_QUALITY_RECEIPT` (análise de qualidade no recebimento; 1 recebimento = 1 ocorrência; rascunho `ABERTA`, finalização `ENCERRADA` + PDF no `StorageProvider`)
 - Catálogo: empresas, filiais, setores, usuários (sem MASTER na lista operacional)
 - Notificações: por destinatário; `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes)
@@ -44,7 +44,7 @@ Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `tran
 
 ## Auth
 
-JWT HS256 (`uid`, `role`, `cid`, `bid`, `pwe` = época da senha). Papéis: MASTER, OWNER, MANAGER, OPERATOR.  
+JWT HS256 (`uid`, `role`, `cid`, `bid`, `pwe` = época da senha). Papéis: MASTER, OWNER, MANAGER, OPERATOR.
 Filtros: `JwtAuthFilter` recarrega o usuário do banco e rejeita token se a conta estiver inativa ou se `pwe` não bater com `auth_users.password_epoch`. Rate limit de login, rate limit de voz.
 
 Troca de senha: `POST /api/auth/password` (própria senha; senha atual errada = 422). MASTER redefine via `PUT /api/admin/users/{id}/password`. Ambas sobem `password_epoch` e gravam `password_change_events` (`CREATED|SELF_CHANGE|ADMIN_RESET`) sem guardar a senha. Sem recuperação por e-mail.

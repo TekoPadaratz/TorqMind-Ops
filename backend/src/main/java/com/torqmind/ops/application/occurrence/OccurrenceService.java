@@ -52,6 +52,10 @@ public class OccurrenceService {
         return occurrenceRepository.findByCompanyIdAndStatusOrderByCreatedAtDesc(companyId, status);
     }
 
+    public Occurrence get(Long id, AppUserPrincipal me) {
+        return tenantAccessService.requireOccurrenceAccess(me, id);
+    }
+
     @Transactional
     public Occurrence open(Occurrence occurrence, AppUserPrincipal me) {
         tenantAccessService.requireBranchInCompany(occurrence.getCompanyId(), occurrence.getBranchId());

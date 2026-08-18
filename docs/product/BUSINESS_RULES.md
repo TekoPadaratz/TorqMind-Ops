@@ -21,7 +21,7 @@ Não desativar a própria conta. Não desativar nem rebaixar o último MASTER at
 
 ## Isolamento
 
-Listagens e resolução de nomes: empresa do JWT; MANAGER/OPERATOR filtram filial.  
+Listagens e resolução de nomes: empresa do JWT; MANAGER/OPERATOR filtram filial.
 Acesso por ID de outra empresa/filial → 403. MASTER vê tudo.
 
 ## Tarefas (rotinas)
@@ -34,10 +34,13 @@ Acesso por ID de outra empresa/filial → 403. MASTER vê tudo.
 - `requiresComment`: comentário na thread ou no payload da transição.
 - `requiresPhoto`: ao menos um anexo cuja **assinatura de bytes** seja imagem (JPEG/PNG/WEBP/GIF). PDF não conta como foto.
 - Recorrência: `ONCE|DAILY|WEEKLY|MONTHLY|CUSTOM`; timezone `America/Sao_Paulo`; `business_days_only` adia fim de semana/feriado nacional BR.
+- **Atraso e escalonamento**: ao vencer sem conclusão, o run vira `ATRASADA`, avisa o responsável e **escalona** para os gerentes da filial e os donos da empresa (uma vez).
 
 ## Ocorrências
 
 Abrir no tenant. Transições via `StatusRules`. Comentário/anexo pelos mesmos endpoints de detalhe.
+
+**Transformar em rotina**: `POST /api/occurrences/{id}/to-routine` cria uma rotina recorrente a partir da ocorrência (mesmo título/descrição/empresa/filial; recorrência + horários informados).
 
 Tipo `FUEL_QUALITY_RECEIPT`: rascunho permanece `ABERTA`; o checkbox “Finalizar ocorrência ao salvar” vai a `ENCERRADA` (regra específica em `StatusRules`). Sem reprovação automática. Reabertura segue o fluxo genérico (hoje terminal). Snapshot do posto fica na análise.
 

@@ -7,6 +7,8 @@ import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.domain.occurrence.Occurrence;
 import com.torqmind.ops.domain.ops.OccurrenceStatus;
 import com.torqmind.ops.domain.task.TaskType;
+import com.torqmind.ops.application.routine.RoutineService;
+import com.torqmind.ops.domain.routine.RoutineTemplate;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -24,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,17 +39,20 @@ public class OccurrenceController {
     private final FuelQualityAnalysisService fuelQualityAnalysisService;
     private final TaskDetailService taskDetailService;
     private final TenantResolver tenantResolver;
+    private final RoutineService routineService;
 
     public OccurrenceController(
             OccurrenceService occurrenceService,
             FuelQualityAnalysisService fuelQualityAnalysisService,
             TaskDetailService taskDetailService,
-            TenantResolver tenantResolver
+            TenantResolver tenantResolver,
+            RoutineService routineService
     ) {
         this.occurrenceService = occurrenceService;
         this.fuelQualityAnalysisService = fuelQualityAnalysisService;
         this.taskDetailService = taskDetailService;
         this.tenantResolver = tenantResolver;
+        this.routineService = routineService;
     }
 
     @GetMapping
@@ -115,6 +122,41 @@ public class OccurrenceController {
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
         return occurrenceService.transition(id, request.status(), request.reason(), me);
+    }
+
+    @PostMapping("/{id}/to-routine")
+    public RoutineTemplate toRoutine(
+            @PathVariable Long id,
+            @Valid @RequestBody ToRoutineRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        Occurrence occ = occurrenceService.get(id, me);
+        return routineService.createRecurringTask(
+                occ.getCompanyId(), occ.getBranchId(), occ.getTitle(), occ.getDescription(),
+                request.recurrence(), request.targetType() == null ? "MANAGERS" : request.targetType(),
+                null, request.targetSectorId(), parseUuid(request.targetUserId()),
+                request.startTime(), request.dueTime(), request.weekday(), request.dayOfMonth(),
+                request.customDays(), Boolean.TRUE.equals(request.businessDaysOnly()), request.startDate(),
+                request.reminderBeforeMinutes(), Boolean.TRUE.equals(request.requiresPhoto()),
+                Boolean.TRUE.equals(request.requiresComment()), me.userId());
+    }
+
+    public record ToRoutineRequest(
+            @NotBlank String recurrence,
+            String targetType,
+            Long targetSectorId,
+            String targetUserId,
+            LocalTime startTime,
+            LocalTime dueTime,
+            Integer weekday,
+            Integer dayOfMonth,
+            List<Integer> customDays,
+            Boolean businessDaysOnly,
+            LocalDate startDate,
+            Integer reminderBeforeMinutes,
+            Boolean requiresPhoto,
+            Boolean requiresComment
+    ) {
     }
 
     @GetMapping("/{id}")

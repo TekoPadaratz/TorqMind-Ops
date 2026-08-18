@@ -68,7 +68,7 @@ function Shell() {
         <div>
           <h1>TorqMind Ops</h1>
           <p className="muted small">
-            {session.fullName} · {session.roleLabel || roleLabel(session.role)} · v{__BUILD_ID__}
+            {session.fullName?.toUpperCase()} · v{__BUILD_ID__}
           </p>
         </div>
         <div className="header-actions">
