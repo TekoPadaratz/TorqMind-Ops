@@ -22,15 +22,19 @@ import com.torqmind.ops.shared.media.MediaSignatures;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -211,6 +215,44 @@ public class RoutineService {
 
     public Optional<RoutineTemplate> findTemplate(Long id) {
         return templateRepository.findById(id);
+    }
+
+    /** Exporta as execucoes (runs) filtradas em CSV (delimitador ';', BOM UTF-8 p/ Excel pt-BR). */
+    public byte[] exportRunsCsv(Long companyId, Long branchId, RoutineStatus status) {
+        List<RoutineRun> runs = listRuns(companyId, branchId, status);
+        Map<Long, String> titles = new HashMap<>();
+        Map<UUID, String> names = new HashMap<>();
+        DateTimeFormatter dt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZONE);
+        StringBuilder sb = new StringBuilder("\uFEFF");
+        sb.append("id;titulo;status;responsavel;agendado;vence;iniciado;concluido\n");
+        for (RoutineRun r : runs) {
+            String title = titles.computeIfAbsent(r.getTemplateId(),
+                    id -> templateRepository.findById(id).map(RoutineTemplate::getTitle).orElse("Rotina"));
+            String who = r.getAssignedUserId() == null ? ""
+                    : names.computeIfAbsent(r.getAssignedUserId(),
+                            id -> userRepository.findById(id).map(User::getFullName).orElse(""));
+            sb.append(r.getId()).append(';')
+                    .append(csvCell(title)).append(';')
+                    .append(r.getStatus().name()).append(';')
+                    .append(csvCell(who)).append(';')
+                    .append(csvDate(dt, r.getScheduledFor())).append(';')
+                    .append(csvDate(dt, r.getDueAt())).append(';')
+                    .append(csvDate(dt, r.getStartedAt())).append(';')
+                    .append(csvDate(dt, r.getCompletedAt())).append('\n');
+        }
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        String v = value.replace("\"", "\"\"");
+        return (v.contains(";") || v.contains("\"") || v.contains("\n")) ? '"' + v + '"' : v;
+    }
+
+    private static String csvDate(DateTimeFormatter dt, Instant instant) {
+        return instant == null ? "" : dt.format(instant);
     }
 
     @Transactional

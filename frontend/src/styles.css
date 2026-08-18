@@ -372,6 +372,16 @@ textarea { min-height: 96px; resize: vertical; }
   color: #8a6d3b;
   border-color: #f5d98a;
 }
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.search-input {
+  width: 100%;
+  margin: 8px 0;
+}
 .status-pendente { color: var(--info); }
 .status-em_andamento { color: var(--warn); }
 .status-concluida { color: var(--accent); }

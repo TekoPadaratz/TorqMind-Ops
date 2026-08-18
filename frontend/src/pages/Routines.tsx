@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiDelete, apiGet, apiPost } from '../api';
+import { apiBlob, apiDelete, apiGet, apiPost } from '../api';
 import { useAuth } from '../auth';
 
 type Template = {
@@ -99,6 +99,7 @@ export default function Routines() {
   const [requiresPhoto, setRequiresPhoto] = useState(false);
   const [requiresComment, setRequiresComment] = useState(false);
   const [runStatus, setRunStatus] = useState('');
+  const [search, setSearch] = useState('');
 
   const usersForBranch = users.filter((user) => branchId === '' || user.branchId === branchId);
   const sectorsForBranch = sectors.filter(
@@ -207,6 +208,24 @@ export default function Routines() {
     }
   }
 
+  async function exportCsv() {
+    setError(null);
+    try {
+      const q = runStatus ? `?status=${runStatus}` : '';
+      const blob = await apiBlob(`/routines/runs/export.csv${q}`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'rotinas.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao exportar');
+    }
+  }
+
   function targetSummary(t: Template): string {
     if (t.targetType === 'USER') {
       const u = users.find((x) => x.id === t.targetUserId);
@@ -234,6 +253,13 @@ export default function Routines() {
     const reminder = t.reminderBeforeMinutes != null ? ` · aviso ${t.reminderBeforeMinutes}min antes` : '';
     return `${rec}${extra}${window} · ${targetSummary(t)}${reminder}`;
   }
+
+  const visibleRuns = search.trim()
+    ? runs.filter((run) => {
+        const t = templates.find((x) => x.id === run.templateId);
+        return (t?.title ?? '').toLowerCase().includes(search.trim().toLowerCase());
+      })
+    : runs;
 
   return (
     <div className="page">
@@ -427,7 +453,10 @@ export default function Routines() {
       </section>
 
       <section className="card">
-        <h2>Tarefas</h2>
+        <div className="row-between">
+          <h2>Tarefas</h2>
+          <button type="button" className="btn-ghost" onClick={exportCsv}>Exportar CSV</button>
+        </div>
         <div className="filter-row">
           {RUN_FILTERS.map((f) => (
             <button
@@ -440,11 +469,17 @@ export default function Routines() {
             </button>
           ))}
         </div>
-        {runs.length === 0 ? (
+        <input
+          className="search-input"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por título..."
+        />
+        {visibleRuns.length === 0 ? (
           <p className="muted">Nenhuma tarefa neste filtro.</p>
         ) : (
           <ul className="list">
-            {runs.map((run) => {
+            {visibleRuns.map((run) => {
               const template = templates.find((t) => t.id === run.templateId);
               return (
                 <li key={run.id} className="clickable" onClick={() => navigate(`/routines/${run.id}`)}>

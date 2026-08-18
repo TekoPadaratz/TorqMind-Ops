@@ -58,6 +58,7 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @jakarta.persistence.Convert(converter = com.torqmind.ops.infrastructure.security.TotpSecretConverter.class)
     @Column(name = "totp_secret")
     private String totpSecret;
 

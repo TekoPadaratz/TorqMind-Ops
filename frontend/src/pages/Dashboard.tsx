@@ -12,15 +12,27 @@ type Summary = {
   openOccurrences: Array<{ id: number; title: string; priority: string }>;
 };
 
+type Metrics = {
+  completedCount: number;
+  onTimeCount: number;
+  onTimeRate: number;
+  aging: { upTo1d: number; upTo3d: number; upTo7d: number; over7d: number };
+  branchRanking: Array<{ branchId: number | null; branchName: string; openCount: number; lateCount: number }>;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<Summary | null>(null);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     apiGet('/dashboard/summary')
       .then(setData)
       .catch((e) => setError(e.message));
+    apiGet('/dashboard/metrics')
+      .then(setMetrics)
+      .catch(() => undefined);
   }, []);
 
   if (error) return <div className="alert-error">{error}</div>;
@@ -43,6 +55,40 @@ export default function Dashboard() {
         <MetricCard label="Ocorrências abertas" value={data.occurrencesOpen} tone="warn" />
         <MetricCard label="Aguardando validação" value={data.occurrencesAwaitingValidation} tone="warn" />
       </div>
+
+      {metrics && (
+        <section className="card">
+          <h2>Indicadores</h2>
+          <div className="cards-grid">
+            <MetricCard
+              label="Conclusão no prazo"
+              value={`${metrics.onTimeRate}%`}
+              tone={metrics.onTimeRate >= 90 ? 'ok' : metrics.onTimeRate >= 70 ? 'warn' : 'danger'}
+            />
+            <MetricCard label="Concluídas (total)" value={metrics.completedCount} tone="info" />
+          </div>
+          <h3 className="muted small">Atrasos por tempo</h3>
+          <div className="chips">
+            <span className="chip">até 1d: {metrics.aging.upTo1d}</span>
+            <span className="chip">1–3d: {metrics.aging.upTo3d}</span>
+            <span className="chip">3–7d: {metrics.aging.upTo7d}</span>
+            <span className="chip status-atrasada">+7d: {metrics.aging.over7d}</span>
+          </div>
+          {metrics.branchRanking.length > 0 && (
+            <>
+              <h3 className="muted small">Ranking por filial (atrasos)</h3>
+              <ul className="list">
+                {metrics.branchRanking.map((b) => (
+                  <li key={String(b.branchId)}>
+                    <span>{b.branchName}</span>
+                    <span className="chip status-atrasada">{b.lateCount} atrasadas · {b.openCount} abertas</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
 
       <section className="card">
         <h2>Ocorrências abertas</h2>
@@ -79,7 +125,7 @@ export default function Dashboard() {
   );
 }
 
-function MetricCard({ label, value, tone }: { label: string; value: number; tone: string }) {
+function MetricCard({ label, value, tone }: { label: string; value: number | string; tone: string }) {
   return (
     <div className={`metric-card tone-${tone}`}>
       <span className="metric-value">{value}</span>

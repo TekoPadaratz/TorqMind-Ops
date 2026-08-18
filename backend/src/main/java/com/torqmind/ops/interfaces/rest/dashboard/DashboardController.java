@@ -30,4 +30,14 @@ public class DashboardController {
         Long branchId = tenantResolver.branchFilterOrNull(me);
         return dashboardService.summary(cid, branchId);
     }
+
+    @GetMapping("/metrics")
+    public DashboardService.DashboardMetrics metrics(
+            @AuthenticationPrincipal AppUserPrincipal me,
+            @RequestParam(required = false) Long companyId
+    ) {
+        Long cid = tenantResolver.resolveListCompanyId(me, companyId);
+        Long branchId = tenantResolver.branchFilterOrNull(me);
+        return dashboardService.metrics(cid, branchId);
+    }
 }

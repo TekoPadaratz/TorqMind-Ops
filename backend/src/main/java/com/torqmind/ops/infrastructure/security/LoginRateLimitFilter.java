@@ -16,7 +16,7 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Limite por IP no /api/auth/login. Complementa o bloqueio por conta no AuthService.
+// Limite por IP no /api/auth/login e /api/auth/login/2fa. Complementa o bloqueio por conta no AuthService.
 @Component
 public class LoginRateLimitFilter extends OncePerRequestFilter {
 
@@ -33,7 +33,7 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-        if ("POST".equalsIgnoreCase(request.getMethod()) && LOGIN_PATH.equals(request.getRequestURI())) {
+        if ("POST".equalsIgnoreCase(request.getMethod()) && isRateLimited(request.getRequestURI())) {
             String ip = clientIp(request);
             long now = System.currentTimeMillis();
             Deque<Long> window = attemptsByIp.computeIfAbsent(ip, k -> new ArrayDeque<>());
@@ -61,5 +61,9 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private boolean isRateLimited(String uri) {
+        return LOGIN_PATH.equals(uri) || (LOGIN_PATH + "/2fa").equals(uri);
     }
 }

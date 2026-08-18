@@ -23,7 +23,7 @@ Não há segundo clone Git do Ops neste host. O “remoto SSH” **é este diret
 - Containers: `torqmind-ops-saas-{postgres,backend,frontend,nginx}-1`
 - Porta pública: **88→80**
 - DB: `torqmind_ops` (volume `torqmind-ops-saas_pgdata`)
-- Flyway aplicado até **V18** (2FA opt-in / `auth_users.totp_secret,totp_enabled`); geolocalização dos anexos = V17; config por empresa = V16; senha = V15; voz = V12; qualidade combustível = V14
+- Flyway aplicado até **V19** (segredo TOTP cifrado em repouso / `totp_secret` VARCHAR(255)); 2FA opt-in = V18; geolocalização dos anexos = V17; config por empresa = V16; senha = V15; voz = V12; qualidade combustível = V14
 - URL homologação: `http://task.torqmind.com.br` (porta 88 / host deste stack)
 
 ## Serviços PROTEGIDOS (outro TorqMind) — não tocar

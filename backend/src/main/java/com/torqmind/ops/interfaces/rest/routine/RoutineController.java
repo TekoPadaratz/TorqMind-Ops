@@ -151,6 +151,21 @@ public class RoutineController {
                 .body(pdf);
     }
 
+    @GetMapping("/runs/export.csv")
+    public ResponseEntity<byte[]> exportRuns(
+            @AuthenticationPrincipal AppUserPrincipal me,
+            @RequestParam(required = false) Long companyId,
+            @RequestParam(required = false) RoutineStatus status
+    ) {
+        Long cid = tenantResolver.resolveListCompanyId(me, companyId);
+        Long branchId = tenantResolver.branchFilterOrNull(me);
+        byte[] csv = routineService.exportRunsCsv(cid, branchId, status);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rotinas.csv")
+                .body(csv);
+    }
+
     @PostMapping("/runs/{id}/comments")
     public TaskDetailService.CommentView addComment(
             @PathVariable Long id,
