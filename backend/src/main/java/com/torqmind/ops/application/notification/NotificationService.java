@@ -17,12 +17,14 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final WebPushService webPushService;
 
     public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository,
-                               EmailService emailService) {
+                               EmailService emailService, WebPushService webPushService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.webPushService = webPushService;
     }
 
     /**
@@ -72,5 +74,17 @@ public class NotificationService {
         notification.setBody(body);
         notification.setCreatedAt(Instant.now());
         notificationRepository.save(notification);
+        webPushService.sendToUser(recipient, title, body, deepLink(entityType, entityId));
+    }
+
+    private static String deepLink(String entityType, Long entityId) {
+        if (entityType == null || entityId == null) {
+            return "/";
+        }
+        return switch (entityType) {
+            case "ROUTINE_RUN" -> "/routines/" + entityId;
+            case "OCCURRENCE" -> "/occurrences/" + entityId;
+            default -> "/";
+        };
     }
 }

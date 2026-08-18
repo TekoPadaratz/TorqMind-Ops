@@ -133,6 +133,114 @@ function TwoFactorCard() {
   );
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  const buffer = new ArrayBuffer(raw.length);
+  const out = new Uint8Array(buffer);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function PushCard() {
+  const supported =
+    typeof navigator !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    typeof window !== 'undefined' &&
+    'PushManager' in window &&
+    'Notification' in window;
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supported) return;
+    navigator.serviceWorker
+      .getRegistration()
+      .then((reg) => (reg ? reg.pushManager.getSubscription() : null))
+      .then((sub) => setEnabled(!!sub))
+      .catch(() => undefined);
+  }, [supported]);
+
+  async function enable() {
+    setError(null);
+    setOk(null);
+    setBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.register('/sw-push.js');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setError('Permissão de notificações não concedida.');
+        return;
+      }
+      const { publicKey } = await apiGet('/push/public-key');
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+      const json: any = sub.toJSON();
+      await apiPost('/push/subscribe', {
+        endpoint: sub.endpoint,
+        keys: { p256dh: json.keys?.p256dh, auth: json.keys?.auth }
+      });
+      setEnabled(true);
+      setOk('Notificações ativadas neste dispositivo.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao ativar notificações.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disable() {
+    setError(null);
+    setOk(null);
+    setBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (sub) {
+        await apiPost('/push/unsubscribe', { endpoint: sub.endpoint });
+        await sub.unsubscribe();
+      }
+      setEnabled(false);
+      setOk('Notificações desativadas neste dispositivo.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao desativar.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>Notificações no dispositivo</h2>
+      <p className="muted small">
+        Receba avisos de tarefas atrasadas e reatribuições mesmo com o app fechado. No iPhone, primeiro adicione o app à tela de início.
+      </p>
+      {!supported ? (
+        <p className="muted small">Este dispositivo/navegador não suporta notificações push.</p>
+      ) : (
+        <>
+          {error && <div className="alert-error">{error}</div>}
+          {ok && <div className="alert-ok">{ok}</div>}
+          {enabled ? (
+            <button className="btn-ghost" type="button" disabled={busy} onClick={disable}>
+              {busy ? 'Processando…' : 'Desativar notificações'}
+            </button>
+          ) : (
+            <button className="btn-primary" type="button" disabled={busy} onClick={enable}>
+              {busy ? 'Ativando…' : 'Ativar notificações'}
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function Account() {
   const { session, replaceSession } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
@@ -211,6 +319,7 @@ export default function Account() {
         </form>
       </section>
       <TwoFactorCard />
+      <PushCard />
     </div>
   );
 }

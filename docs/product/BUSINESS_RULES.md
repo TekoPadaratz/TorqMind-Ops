@@ -61,6 +61,8 @@ Tipo `FUEL_QUALITY_RECEIPT`: rascunho permanece `ABERTA`; o checkbox “Finaliza
 
 `notifyCounterpart(actor, recipient, …)` — nunca o actor. MASTER ativos recebem cópia (fase de testes). Marcar lidas não apaga.
 
+**Notificações push (Web Push)**: opt-in por dispositivo em Conta (qualquer papel). O app pede a permissão do navegador e registra um Service Worker **só-push** (não cacheia nada). O servidor guarda a inscrição por endpoint (uma por dispositivo) e, a cada notificação in-app criada, dispara também um push **best-effort** (nunca bloqueia nem quebra o fluxo; inscrições mortas 404/410 são removidas). Chaves VAPID são geradas e guardadas no servidor (privada cifrada), sem serviço de terceiros e sem custo. No iPhone, só funciona com o app instalado na tela de início (iOS 16.4+).
+
 ## Auditoria
 
 `task_activities` registra ator, de/para, mensagem. Voz grava origem `VOICE` no rascunho e mensagem de atividade. Sem áudio/segredos em log.

@@ -41,6 +41,8 @@ app:
     password: ${MAIL_PASSWORD:}
     use-tls: ${MAIL_USE_TLS:true}
     use-ssl: ${MAIL_USE_SSL:false}
+  push:
+    subject: ${PUSH_SUBJECT:mailto:nao-responder@torqmind.com.br}
   jwt:
     secret: ${JWT_SECRET:change-me-in-production}
     issuer: torqmind-ops
