@@ -39,11 +39,22 @@ async function handle(res: Response) {
   return data;
 }
 
-export async function apiLogin(username: string, password: string): Promise<Session> {
+export type LoginResponse = Partial<Session> & { totpRequired?: boolean; challenge?: string | null };
+
+export async function apiLogin(username: string, password: string): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
+  });
+  return handle(res);
+}
+
+export async function apiLoginTotp(challenge: string, code: string): Promise<Session> {
+  const res = await fetch(`${API_BASE}/auth/login/2fa`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challenge, code })
   });
   return handle(res);
 }

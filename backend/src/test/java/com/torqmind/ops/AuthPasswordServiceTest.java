@@ -2,6 +2,7 @@ package com.torqmind.ops;
 
 import com.torqmind.ops.application.auth.AuthService;
 import com.torqmind.ops.application.auth.CredentialService;
+import com.torqmind.ops.application.auth.TotpService;
 import com.torqmind.ops.domain.user.PasswordChangeEvent;
 import com.torqmind.ops.domain.user.User;
 import com.torqmind.ops.infrastructure.persistence.PasswordChangeEventRepository;
@@ -33,7 +34,7 @@ class AuthPasswordServiceTest {
         encoder = new BCryptPasswordEncoder();
         CredentialService credentialService = new CredentialService(encoder, userRepository, eventRepository);
         jwtService = new JwtService("unit-test-secret-with-at-least-32-chars!!", "torqmind-ops", 60);
-        authService = new AuthService(userRepository, encoder, jwtService, credentialService);
+        authService = new AuthService(userRepository, encoder, jwtService, credentialService, new TotpService());
         Mockito.when(userRepository.save(Mockito.any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         Mockito.when(eventRepository.save(Mockito.any(PasswordChangeEvent.class))).thenAnswer(inv -> inv.getArgument(0));
         userId = UUID.randomUUID();
@@ -81,8 +82,9 @@ class AuthPasswordServiceTest {
         user.setPasswordEpoch(4);
         Mockito.when(userRepository.findByUsernameIgnoreCase("ana")).thenReturn(Optional.of(user));
 
-        AuthService.LoginResult result = authService.login("ana", "Atual123");
-        Assertions.assertEquals(4, jwtService.parseToken(result.token()).passwordEpoch());
+        AuthService.LoginOutcome outcome = authService.login("ana", "Atual123");
+        Assertions.assertFalse(outcome.totpRequired());
+        Assertions.assertEquals(4, jwtService.parseToken(outcome.result().token()).passwordEpoch());
     }
 
     private User stored(String rawPassword) {

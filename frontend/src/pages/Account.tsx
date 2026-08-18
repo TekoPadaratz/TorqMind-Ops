@@ -1,8 +1,137 @@
-import React, { useState } from 'react';
-import { apiPost } from '../api';
+import React, { useState, useEffect } from 'react';
+import { apiGet, apiPost } from '../api';
 import { useAuth } from '../auth';
 import PasswordField from '../components/PasswordField';
 import { passwordConfirmError } from '../password';
+
+function TwoFactorCard() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [setup, setSetup] = useState<{ secret: string; otpauthUri: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    apiGet('/auth/2fa').then((r) => setEnabled(!!r.enabled)).catch(() => setEnabled(false));
+  }, []);
+
+  async function startSetup() {
+    setError(null);
+    setOk(null);
+    setBusy(true);
+    try {
+      setSetup(await apiPost('/auth/2fa/setup', {}));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao iniciar.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmEnable(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setOk(null);
+    setBusy(true);
+    try {
+      await apiPost('/auth/2fa/enable', { code: code.trim() });
+      setEnabled(true);
+      setSetup(null);
+      setCode('');
+      setOk('Verificação em duas etapas ativada.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Código inválido.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disable(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setOk(null);
+    setBusy(true);
+    try {
+      await apiPost('/auth/2fa/disable', { code: code.trim() });
+      setEnabled(false);
+      setCode('');
+      setOk('Verificação em duas etapas desativada.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Código inválido.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>Verificação em duas etapas</h2>
+      <p className="muted small">
+        Proteja o acesso com um código do seu app de autenticação (Google Authenticator, Authy, etc.).
+      </p>
+      {enabled === null && <p className="muted">Carregando...</p>}
+
+      {enabled === true && (
+        <form className="stack" onSubmit={disable}>
+          <div className="alert-ok">Ativa nesta conta.</div>
+          <label className="field-label">Para desativar, informe um código atual
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={6}
+              required
+            />
+          </label>
+          {error && <div className="alert-error">{error}</div>}
+          {ok && <div className="alert-ok">{ok}</div>}
+          <button className="btn-ghost" type="submit" disabled={busy}>
+            {busy ? 'Processando...' : 'Desativar'}
+          </button>
+        </form>
+      )}
+
+      {enabled === false && !setup && (
+        <>
+          {ok && <div className="alert-ok">{ok}</div>}
+          {error && <div className="alert-error">{error}</div>}
+          <button className="btn-primary" type="button" disabled={busy} onClick={startSetup}>
+            {busy ? 'Gerando...' : 'Ativar'}
+          </button>
+        </>
+      )}
+
+      {enabled === false && setup && (
+        <form className="stack" onSubmit={confirmEnable}>
+          <p className="muted small">1. Adicione esta chave no seu app de autenticação:</p>
+          <code style={{ display: 'block', padding: '8px', background: '#f4f4f4', borderRadius: 6, wordBreak: 'break-all' }}>
+            {setup.secret}
+          </code>
+          <p className="muted small" style={{ wordBreak: 'break-all' }}>Ou use o link: {setup.otpauthUri}</p>
+          <label className="field-label">2. Digite o código gerado
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={6}
+              autoFocus
+              required
+            />
+          </label>
+          {error && <div className="alert-error">{error}</div>}
+          <button className="btn-primary" type="submit" disabled={busy}>
+            {busy ? 'Confirmando...' : 'Confirmar e ativar'}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
 
 export default function Account() {
   const { session, replaceSession } = useAuth();
@@ -81,6 +210,7 @@ export default function Account() {
           </button>
         </form>
       </section>
+      <TwoFactorCard />
     </div>
   );
 }

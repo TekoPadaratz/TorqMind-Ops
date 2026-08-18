@@ -24,7 +24,16 @@ public class AuthController {
 
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        AuthService.LoginResult result = authService.login(request.username(), request.password());
+        AuthService.LoginOutcome outcome = authService.login(request.username(), request.password());
+        if (outcome.totpRequired()) {
+            return LoginResponse.totpChallenge(outcome.challenge());
+        }
+        return toLogin(outcome.result());
+    }
+
+    @PostMapping("/login/2fa")
+    public LoginResponse loginTotp(@Valid @RequestBody TotpLoginRequest request) {
+        AuthService.LoginResult result = authService.verifyTotpLogin(request.challenge(), request.code());
         return toLogin(result);
     }
 
@@ -53,6 +62,34 @@ public class AuthController {
         return toLogin(result);
     }
 
+    @GetMapping("/2fa")
+    public TwoFactorStatus twoFactorStatus(@AuthenticationPrincipal AppUserPrincipal principal) {
+        return new TwoFactorStatus(authService.totpEnabled(principal.userId()));
+    }
+
+    @PostMapping("/2fa/setup")
+    public AuthService.TotpSetup setupTwoFactor(@AuthenticationPrincipal AppUserPrincipal principal) {
+        return authService.setupTotp(principal.userId());
+    }
+
+    @PostMapping("/2fa/enable")
+    public TwoFactorStatus enableTwoFactor(
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            @Valid @RequestBody TotpCodeRequest request
+    ) {
+        authService.enableTotp(principal.userId(), request.code());
+        return new TwoFactorStatus(true);
+    }
+
+    @PostMapping("/2fa/disable")
+    public TwoFactorStatus disableTwoFactor(
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            @Valid @RequestBody TotpCodeRequest request
+    ) {
+        authService.disableTotp(principal.userId(), request.code());
+        return new TwoFactorStatus(false);
+    }
+
     private static LoginResponse toLogin(AuthService.LoginResult result) {
         return new LoginResponse(
                 result.token(),
@@ -62,7 +99,9 @@ public class AuthController {
                 result.role(),
                 RoleLabels.pt(result.role()),
                 result.companyId(),
-                result.branchId()
+                result.branchId(),
+                false,
+                null
         );
     }
 
@@ -70,6 +109,15 @@ public class AuthController {
     }
 
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {
+    }
+
+    public record TotpLoginRequest(@NotBlank String challenge, @NotBlank String code) {
+    }
+
+    public record TotpCodeRequest(@NotBlank String code) {
+    }
+
+    public record TwoFactorStatus(boolean enabled) {
     }
 
     public record LoginResponse(
@@ -80,8 +128,13 @@ public class AuthController {
             String role,
             String roleLabel,
             Long companyId,
-            Long branchId
+            Long branchId,
+            boolean totpRequired,
+            String challenge
     ) {
+        public static LoginResponse totpChallenge(String challenge) {
+            return new LoginResponse(null, null, null, null, null, null, null, null, true, challenge);
+        }
     }
 
     public record MeResponse(

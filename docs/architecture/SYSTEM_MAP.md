@@ -49,6 +49,8 @@ Filtros: `JwtAuthFilter` recarrega o usuário do banco e rejeita token se a cont
 
 Troca de senha: `POST /api/auth/password` (própria senha; senha atual errada = 422). MASTER redefine via `PUT /api/admin/users/{id}/password`. Ambas sobem `password_epoch` e gravam `password_change_events` (`CREATED|SELF_CHANGE|ADMIN_RESET`) sem guardar a senha. Sem recuperação por e-mail.
 
+2FA (TOTP, opt-in por usuário): `TotpService` (HMAC-SHA1/Base32, RFC 6238, sem dependência). Ativação self-service em `/api/auth/2fa` (`GET` status, `POST /setup` gera segredo+otpauth, `POST /enable` confirma código, `POST /disable` exige código). Login em 2 passos: se `totp_enabled`, `POST /api/auth/login` devolve `{totpRequired,challenge}` (JWT `stage=2fa`, 5 min, **rejeitado** como bearer) e `POST /api/auth/login/2fa` troca desafio+código pelo token. Lockout de conta também no 2º fator. Recuperação: MASTER remove via `POST /api/admin/users/{id}/2fa/disable`.
+
 ## Fluxo criar → concluir
 
 UI ou voz confirmada → `createRecurringTask` / `open` → run gerado → `transition(EM_ANDAMENTO)` só pelo responsável se nominal → comentário/foto via `TaskDetailService` → `transition(CONCLUIDA)` com `StatusRules` + evidências.

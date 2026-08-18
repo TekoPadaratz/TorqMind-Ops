@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { apiLogin, Session } from './api';
+import { apiLogin, apiLoginTotp, LoginResponse, Session } from './api';
+
+type LoginStep = { totpRequired: true; challenge: string } | { totpRequired: false };
 
 type AuthContextValue = {
   session: Session | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<LoginStep>;
+  loginTotp: (challenge: string, code: string) => Promise<void>;
   replaceSession: (next: Session) => void;
   logout: () => void;
 };
@@ -34,7 +37,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     async login(username: string, password: string) {
       const result = await apiLogin(username, password);
-      persist(result);
+      if (result.totpRequired) {
+        return { totpRequired: true as const, challenge: result.challenge ?? '' };
+      }
+      persist(toSession(result));
+      return { totpRequired: false as const };
+    },
+    async loginTotp(challenge: string, code: string) {
+      persist(await apiLoginTotp(challenge, code));
     },
     replaceSession(next: Session) {
       persist(next);
@@ -50,6 +60,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('torqmind.token', next.token);
     localStorage.setItem('torqmind.session', JSON.stringify(next));
     setSession(next);
+  }
+
+  function toSession(r: LoginResponse): Session {
+    return {
+      token: r.token as string,
+      userId: r.userId as string,
+      username: r.username as string,
+      fullName: r.fullName as string,
+      role: r.role as string,
+      roleLabel: r.roleLabel,
+      companyId: r.companyId ?? null,
+      branchId: r.branchId ?? null
+    };
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

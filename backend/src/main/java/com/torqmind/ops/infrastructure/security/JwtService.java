@@ -61,6 +61,34 @@ public class JwtService {
         return builder.compact();
     }
 
+    /** Desafio de curta duracao (5 min) para o 2o fator; nao autentica requisicoes. */
+    public String generate2faChallenge(UUID userId, String username) {
+        Instant now = Instant.now();
+        Instant exp = now.plus(5, ChronoUnit.MINUTES);
+        return Jwts.builder()
+                .issuer(issuer)
+                .subject(username)
+                .claim("uid", userId.toString())
+                .claim("stage", "2fa")
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(exp))
+                .signWith(key)
+                .compact();
+    }
+
+    public UUID parse2faChallenge(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(key)
+                .requireIssuer(issuer)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+        if (!"2fa".equals(claims.get("stage", String.class))) {
+            throw new IllegalArgumentException("Desafio 2FA invalido.");
+        }
+        return UUID.fromString(claims.get("uid", String.class));
+    }
+
     public ParsedToken parseToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(key)
@@ -68,6 +96,9 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        if ("2fa".equals(claims.get("stage", String.class))) {
+            throw new IllegalArgumentException("Token de desafio 2FA nao pode autenticar requisicoes.");
+        }
         UUID uid = UUID.fromString(claims.get("uid", String.class));
         String role = claims.get("role", String.class);
         Long companyId = claimLong(claims, "cid");

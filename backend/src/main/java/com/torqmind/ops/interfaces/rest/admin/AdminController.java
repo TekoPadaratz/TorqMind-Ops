@@ -1,6 +1,7 @@
 package com.torqmind.ops.interfaces.rest.admin;
 
 import com.torqmind.ops.application.admin.AdminService;
+import com.torqmind.ops.application.auth.AuthService;
 import com.torqmind.ops.application.company.CompanySettingsService;
 import com.torqmind.ops.domain.company.Branch;
 import com.torqmind.ops.domain.company.Company;
@@ -33,10 +34,12 @@ public class AdminController {
 
     private final AdminService adminService;
     private final CompanySettingsService companySettingsService;
+    private final AuthService authService;
 
-    public AdminController(AdminService adminService, CompanySettingsService companySettingsService) {
+    public AdminController(AdminService adminService, CompanySettingsService companySettingsService, AuthService authService) {
         this.adminService = adminService;
         this.companySettingsService = companySettingsService;
+        this.authService = authService;
     }
 
     @GetMapping("/users")
@@ -99,6 +102,11 @@ public class AdminController {
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
         return UserResponse.from(adminService.unlockUser(me.role(), id));
+    }
+
+    @PostMapping("/users/{id}/2fa/disable")
+    public UserResponse disableUserTwoFactor(@PathVariable UUID id) {
+        return UserResponse.from(authService.adminDisableTotp(id));
     }
 
     @GetMapping("/users/{id}/password-events")
