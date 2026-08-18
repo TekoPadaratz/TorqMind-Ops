@@ -3,6 +3,7 @@ package com.torqmind.ops.application.routine;
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.task.ActivityService;
 import com.torqmind.ops.application.tenant.TenantAccessService;
+import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.domain.calendar.BrazilianNationalHolidays;
 import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.ops.StatusRules;
@@ -16,6 +17,7 @@ import com.torqmind.ops.infrastructure.persistence.TaskAttachmentRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskCommentRepository;
 import com.torqmind.ops.infrastructure.persistence.UserRepository;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
+import com.torqmind.ops.shared.api.ForbiddenException;
 import com.torqmind.ops.shared.media.MediaSignatures;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,6 +79,19 @@ public class RoutineService {
         RoutineTemplate template = tenantAccessService.requireTemplateAccess(me, templateId);
         template.setActive(false);
         templateRepository.save(template);
+    }
+
+    @Transactional
+    public RoutineTemplate deleteTemplateAsActor(Long templateId, AppUserPrincipal me) {
+        RoutineTemplate template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new IllegalArgumentException("Rotina não encontrada."));
+        if (!TenantResolver.canDeleteTemplate(me.role(), me.userId(), me.companyId(),
+                template.getCompanyId(), template.getCreatedBy())) {
+            throw new ForbiddenException("Só o dono, o administrador ou quem criou pode excluir esta rotina.");
+        }
+        template.setActive(false);
+        templateRepository.save(template);
+        return template;
     }
 
     @Transactional

@@ -32,6 +32,7 @@ public class VoiceDraftService {
     private final VoiceCommandExecutor executor;
     private final ObjectMapper objectMapper;
     private final com.torqmind.ops.application.task.TaskDetailService taskDetailService;
+    private final com.torqmind.ops.application.company.CompanySettingsService companySettingsService;
 
     public VoiceDraftService(
             VoiceProperties properties,
@@ -41,7 +42,8 @@ public class VoiceDraftService {
             AuthorizedEntityResolver resolver,
             VoiceCommandExecutor executor,
             ObjectMapper objectMapper,
-            com.torqmind.ops.application.task.TaskDetailService taskDetailService
+            com.torqmind.ops.application.task.TaskDetailService taskDetailService,
+            com.torqmind.ops.application.company.CompanySettingsService companySettingsService
     ) {
         this.properties = properties;
         this.draftRepository = draftRepository;
@@ -51,6 +53,7 @@ public class VoiceDraftService {
         this.executor = executor;
         this.objectMapper = objectMapper;
         this.taskDetailService = taskDetailService;
+        this.companySettingsService = companySettingsService;
     }
 
     public Map<String, Object> status() {
@@ -231,6 +234,7 @@ public class VoiceDraftService {
         intent.setAmbiguities(new java.util.ArrayList<>());
         intent.setMissingFields(new java.util.ArrayList<>());
         VoiceResolved resolved = resolver.resolve(me, intent, context);
+        applyCompanyDefaults(intent, resolved);
         executor.collectMissing(intent, resolved, taskDetailService);
         draft.setIntentJson(write(intent));
         draft.setResolvedJson(write(resolved));
@@ -281,6 +285,22 @@ public class VoiceDraftService {
         long count = draftRepository.countByActorUserIdAndCreatedAtAfter(userId, window);
         if (count >= properties.getRateLimitPerWindow()) {
             throw new VoiceRateLimitException("Muitos comandos por voz. Aguarde alguns minutos.");
+        }
+    }
+
+    private void applyCompanyDefaults(VoiceIntent intent, VoiceResolved resolved) {
+        if (!"CREATE_TASK".equals(intent.getAction()) || resolved.getCompanyId() == null) {
+            return;
+        }
+        com.torqmind.ops.domain.company.CompanySettings s = companySettingsService.getOrDefault(resolved.getCompanyId());
+        if (intent.getRequiresPhoto() == null) {
+            intent.setRequiresPhoto(s.isRequirePhotoOnComplete());
+        }
+        if (intent.getRequiresComment() == null) {
+            intent.setRequiresComment(s.isRequireCommentOnComplete());
+        }
+        if (intent.getReminderBeforeMinutes() == null) {
+            intent.setReminderBeforeMinutes(s.getDefaultReminderMinutes());
         }
     }
 

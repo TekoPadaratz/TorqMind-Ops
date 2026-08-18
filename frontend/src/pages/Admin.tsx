@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../api';
-import { ROLE_OPTIONS_ADMIN, roleLabel } from '../roles';
 import { formatCep, formatCnpj, formatUf } from '../masks';
+import UsersAdmin, { AdminUser } from './AdminUsers';
+import AdminSettings from './AdminSettings';
 
 type Option = {
   id: number;
@@ -18,16 +19,7 @@ type Option = {
     postalCode?: string | null;
   };
 };
-type UserRow = {
-  id: string;
-  username: string;
-  fullName: string;
-  role: string;
-  roleLabel?: string;
-  companyId?: number | null;
-  branchId?: number | null;
-  active: boolean;
-};
+type UserRow = AdminUser;
 
 export default function Admin() {
   const [companies, setCompanies] = useState<Option[]>([]);
@@ -116,33 +108,25 @@ export default function Admin() {
         onError={fail}
       />
 
-      <UserForm
+      <UsersAdmin
         companies={companies}
         branches={branches}
         sectors={sectors}
         selectedCompany={companyId}
         onCompanyChange={setCompanyId}
-        onCreated={async () => {
-          await loadUsers();
-          flash('Usuário criado.');
-        }}
+        users={users}
+        onReload={loadUsers}
+        onOk={flash}
         onError={fail}
       />
 
-      <section className="card">
-        <h2>Usuários</h2>
-        <ul className="list">
-          {users.map((u) => (
-            <li key={u.id}>
-              <div>
-                <strong>{u.fullName}</strong>
-                <div className="muted small">@{u.username}</div>
-              </div>
-              <span className="chip">{u.roleLabel || roleLabel(u.role)}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <AdminSettings
+        companies={companies}
+        selectedCompany={companyId}
+        onCompanyChange={setCompanyId}
+        onOk={flash}
+        onError={fail}
+      />
 
       <section className="card">
         <h2>Setores</h2>
@@ -415,110 +399,6 @@ function SectorForm({
         </select>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do setor" required />
         <button className="btn-primary" type="submit">Criar setor</button>
-      </form>
-    </section>
-  );
-}
-
-function UserForm({
-  companies,
-  branches,
-  sectors,
-  selectedCompany,
-  onCompanyChange,
-  onCreated,
-  onError
-}: {
-  companies: Option[];
-  branches: Option[];
-  sectors: Option[];
-  selectedCompany: number | '';
-  onCompanyChange: (id: number) => void;
-  onCreated: () => void;
-  onError: (e: unknown) => void;
-}) {
-  const [username, setUsername] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState('MANAGER');
-  const [password, setPassword] = useState('');
-  const [branchId, setBranchId] = useState<number | ''>('');
-  const [sectorId, setSectorId] = useState<number | ''>('');
-
-  const needsCompany = role !== 'MASTER';
-  const needsBranch = role === 'MANAGER' || role === 'OPERATOR';
-
-  return (
-    <section className="card">
-      <h2>Cadastrar usuário</h2>
-      <form
-        className="stack"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          try {
-            await apiPost('/admin/users', {
-              username,
-              fullName,
-              role,
-              password,
-              companyId: needsCompany && typeof selectedCompany === 'number' ? selectedCompany : null,
-              branchId: needsBranch && branchId !== '' ? branchId : null,
-              sectorId: sectorId === '' ? null : sectorId
-            });
-            setUsername('');
-            setFullName('');
-            setPassword('');
-            onCreated();
-          } catch (err) {
-            onError(err);
-          }
-        }}
-      >
-        <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome completo" required />
-        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Usuário (a-z, 0-9, . _ -)" autoCapitalize="none" required />
-        <label className="field-label">Função</label>
-        <select value={role} onChange={(e) => setRole(e.target.value)}>
-          {ROLE_OPTIONS_ADMIN.map((r) => (
-            <option key={r.value} value={r.value}>{r.label}</option>
-          ))}
-        </select>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Senha (mín. 8, letras e números)" required />
-        {needsCompany && (
-          <>
-            <label className="field-label">Empresa</label>
-            <select
-              value={selectedCompany}
-              onChange={(e) => onCompanyChange(Number(e.target.value))}
-              required
-            >
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </>
-        )}
-        {needsBranch && (
-          <>
-            <label className="field-label">Filial</label>
-            <select
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value === '' ? '' : Number(e.target.value))}
-              required
-            >
-              <option value="">Selecione a filial</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </>
-        )}
-        <label className="field-label">Setor (opcional)</label>
-        <select value={sectorId} onChange={(e) => setSectorId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">(Sem setor)</option>
-          {sectors.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        <button className="btn-primary" type="submit">Criar usuário</button>
       </form>
     </section>
   );

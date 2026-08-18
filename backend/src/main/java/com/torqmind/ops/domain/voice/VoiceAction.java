@@ -9,5 +9,7 @@ public enum VoiceAction {
     REJECT_TASK,
     OPEN_TASK,
     OPEN_QUALITY_ANALYSIS,
-    LIST_TASKS
+    LIST_TASKS,
+    QUERY_TASK,
+    DELETE_TASK
 }

@@ -1,8 +1,10 @@
 package com.torqmind.ops.interfaces.rest.admin;
 
 import com.torqmind.ops.application.admin.AdminService;
+import com.torqmind.ops.application.company.CompanySettingsService;
 import com.torqmind.ops.domain.company.Branch;
 import com.torqmind.ops.domain.company.Company;
+import com.torqmind.ops.domain.company.CompanySettings;
 import com.torqmind.ops.domain.sector.Sector;
 import com.torqmind.ops.domain.user.RoleLabels;
 import com.torqmind.ops.domain.user.User;
@@ -20,7 +22,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -28,9 +32,11 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final CompanySettingsService companySettingsService;
 
-    public AdminController(AdminService adminService) {
+    public AdminController(AdminService adminService, CompanySettingsService companySettingsService) {
         this.adminService = adminService;
+        this.companySettingsService = companySettingsService;
     }
 
     @GetMapping("/users")
@@ -45,6 +51,7 @@ public class AdminController {
     ) {
         User user = adminService.createUser(
                 me.role(),
+                me.userId(),
                 request.username(),
                 request.fullName(),
                 request.role(),
@@ -54,6 +61,54 @@ public class AdminController {
                 request.sectorId()
         );
         return UserResponse.from(user);
+    }
+
+    @PutMapping("/users/{id}")
+    public UserResponse updateUser(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateUserRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        User user = adminService.updateUser(
+                me.role(),
+                me.userId(),
+                id,
+                request.fullName(),
+                request.role(),
+                request.companyId(),
+                request.branchId(),
+                request.sectorId(),
+                request.active()
+        );
+        return UserResponse.from(user);
+    }
+
+    @PutMapping("/users/{id}/password")
+    public UserResponse resetPassword(
+            @PathVariable UUID id,
+            @Valid @RequestBody ResetPasswordRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        User user = adminService.resetPassword(me.role(), me.userId(), id, request.newPassword());
+        return UserResponse.from(user);
+    }
+
+    @PostMapping("/users/{id}/unlock")
+    public UserResponse unlockUser(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return UserResponse.from(adminService.unlockUser(me.role(), id));
+    }
+
+    @GetMapping("/users/{id}/password-events")
+    public List<PasswordEventResponse> listPasswordEvents(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return adminService.listPasswordEvents(me.role(), id).stream()
+                .map(PasswordEventResponse::from)
+                .toList();
     }
 
     @GetMapping("/sectors")
@@ -90,6 +145,42 @@ public class AdminController {
                 id, request.name(), request.legalName(), request.cnpj(), toAddress(request));
     }
 
+    @GetMapping("/companies/{id}/settings")
+    public CompanySettingsResponse getSettings(@PathVariable Long id) {
+        return CompanySettingsResponse.from(companySettingsService.getOrDefault(id));
+    }
+
+    @PutMapping("/companies/{id}/settings")
+    public CompanySettingsResponse updateSettings(@PathVariable Long id, @RequestBody CompanySettingsRequest request) {
+        return CompanySettingsResponse.from(companySettingsService.update(
+                id,
+                Boolean.TRUE.equals(request.requirePhotoOnComplete()),
+                Boolean.TRUE.equals(request.requireCommentOnComplete()),
+                request.defaultReminderMinutes()));
+    }
+
+    public record CompanySettingsRequest(
+            Boolean requirePhotoOnComplete,
+            Boolean requireCommentOnComplete,
+            Integer defaultReminderMinutes
+    ) {
+    }
+
+    public record CompanySettingsResponse(
+            Long companyId,
+            boolean requirePhotoOnComplete,
+            boolean requireCommentOnComplete,
+            int defaultReminderMinutes
+    ) {
+        static CompanySettingsResponse from(CompanySettings s) {
+            return new CompanySettingsResponse(
+                    s.getCompanyId(),
+                    s.isRequirePhotoOnComplete(),
+                    s.isRequireCommentOnComplete(),
+                    s.getDefaultReminderMinutes());
+        }
+    }
+
     private static AdminService.PostalAddressRequest toAddress(LegalCadastro request) {
         return new AdminService.PostalAddressRequest(
                 request.addressStreet(),
@@ -110,6 +201,19 @@ public class AdminController {
             Long companyId,
             Long branchId,
             Long sectorId
+    ) {
+    }
+
+    public record ResetPasswordRequest(@NotBlank String newPassword) {
+    }
+
+    public record UpdateUserRequest(
+            @NotBlank String fullName,
+            @NotBlank String role,
+            Long companyId,
+            Long branchId,
+            Long sectorId,
+            Boolean active
     ) {
     }
 
@@ -163,9 +267,15 @@ public class AdminController {
             String roleLabel,
             Long companyId,
             Long branchId,
-            boolean active
+            Long sectorId,
+            boolean active,
+            boolean locked,
+            Instant lockedUntil,
+            Instant passwordChangedAt
     ) {
         static UserResponse from(User u) {
+            Instant now = Instant.now();
+            boolean locked = u.getLockedUntil() != null && u.getLockedUntil().isAfter(now);
             return new UserResponse(
                     u.getId().toString(),
                     u.getUsername(),
@@ -174,7 +284,33 @@ public class AdminController {
                     RoleLabels.pt(u.getRole()),
                     u.getCompanyId(),
                     u.getBranchId(),
-                    u.isActive()
+                    u.getSectorId(),
+                    u.isActive(),
+                    locked,
+                    u.getLockedUntil(),
+                    u.getPasswordChangedAt()
+            );
+        }
+    }
+
+    public record PasswordEventResponse(
+            Long id,
+            String action,
+            String actionLabel,
+            String actorUserId,
+            String actorName,
+            String actorUsername,
+            Instant createdAt
+    ) {
+        static PasswordEventResponse from(AdminService.PasswordEventView event) {
+            return new PasswordEventResponse(
+                    event.id(),
+                    event.action(),
+                    event.actionLabel(),
+                    event.actorUserId() == null ? null : event.actorUserId().toString(),
+                    event.actorName(),
+                    event.actorUsername(),
+                    event.createdAt()
             );
         }
     }

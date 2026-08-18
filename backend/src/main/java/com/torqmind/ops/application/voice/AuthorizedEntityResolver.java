@@ -224,6 +224,14 @@ public class AuthorizedEntityResolver {
 
     private void resolveTask(AppUserPrincipal me, VoiceIntent intent, VoiceContext context, VoiceResolved resolved) {
         String action = nvl(intent.getAction());
+        if ("QUERY_TASK".equals(action)) {
+            resolveQuery(me, intent, resolved);
+            return;
+        }
+        if ("DELETE_TASK".equals(action)) {
+            resolveDeleteTarget(me, intent, resolved);
+            return;
+        }
         boolean needsTask = List.of("START_TASK", "COMPLETE_TASK", "REJECT_TASK", "ADD_COMMENT", "OPEN_TASK").contains(action);
         if (!needsTask) {
             return;
@@ -318,6 +326,107 @@ public class AuthorizedEntityResolver {
         resolved.setRunId(run.getId());
         resolved.setTaskType("ROUTINE_RUN");
         resolved.setTaskTitle(context.getCurrentTaskTitle());
+    }
+
+    private void resolveQuery(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
+        intent.setAmbiguities(new ArrayList<>());
+        intent.setMissingFields(new ArrayList<>());
+        String ref = intent.getTaskReference();
+        Long cid = resolved.getCompanyId();
+        Long bid = tenantResolver.branchFilterOrNull(me);
+        List<RoutineRun> runs = bid != null
+                ? runRepository.findByCompanyIdAndBranchIdOrderByDueAtAsc(cid, bid)
+                : runRepository.findByCompanyIdOrderByDueAtAsc(cid);
+        LocalDate wanted = parseQueryDate(intent.getScheduledDate());
+        RoutineRun best = null;
+        for (RoutineRun run : runs) {
+            if (resolved.getUserId() != null && !resolved.getUserId().equals(run.getAssignedUserId())) {
+                continue;
+            }
+            if (wanted != null && !onDate(run, wanted)) {
+                continue;
+            }
+            if (!blank(ref)) {
+                RoutineTemplate tpl = templateRepository.findById(run.getTemplateId()).orElse(null);
+                if (tpl == null || !matches(tpl.getTitle(), ref)) {
+                    continue;
+                }
+            }
+            best = run;
+        }
+        if (best != null) {
+            resolved.setRunId(best.getId());
+            resolved.setTaskType("ROUTINE_RUN");
+            templateRepository.findById(best.getTemplateId()).ifPresent(t -> resolved.setTaskTitle(t.getTitle()));
+        }
+    }
+
+    private void resolveDeleteTarget(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
+        intent.setAmbiguities(new ArrayList<>());
+        intent.setMissingFields(new ArrayList<>());
+        String ref = intent.getTaskReference();
+        if (blank(ref)) {
+            return;
+        }
+        Long cid = resolved.getCompanyId();
+        Long bid = tenantResolver.branchFilterOrNull(me);
+        List<RoutineTemplate> all = templateRepository.findByCompanyIdAndActiveTrueOrderByCreatedAtDesc(cid);
+        if (ref.startsWith("t:")) {
+            Long id = parseLong(ref.substring(2));
+            RoutineTemplate tpl = all.stream()
+                    .filter(t -> t.getId().equals(id))
+                    .filter(t -> bid == null || bid.equals(t.getBranchId()))
+                    .findFirst().orElse(null);
+            if (tpl != null) {
+                resolved.setTemplateId(tpl.getId());
+                resolved.setTaskTitle(tpl.getTitle());
+            }
+            return;
+        }
+        List<RoutineTemplate> hits = all.stream()
+                .filter(t -> bid == null || bid.equals(t.getBranchId()))
+                .filter(t -> matches(t.getTitle(), ref))
+                .toList();
+        if (hits.size() == 1) {
+            resolved.setTemplateId(hits.get(0).getId());
+            resolved.setTaskTitle(hits.get(0).getTitle());
+        } else if (hits.size() > 1) {
+            List<VoiceOption> options = hits.stream()
+                    .limit(8)
+                    .map(t -> new VoiceOption("t:" + t.getId(), deleteOptionLabel(t)))
+                    .toList();
+            intent.getAmbiguities().add(new VoiceAmbiguity("taskReference", ref, options));
+        }
+    }
+
+    private String deleteOptionLabel(RoutineTemplate t) {
+        StringBuilder sb = new StringBuilder(t.getTitle() == null ? "Rotina" : t.getTitle());
+        if (t.getBranchId() != null) {
+            branchRepository.findById(t.getBranchId()).ifPresent(b -> sb.append(" — ").append(b.getName()));
+        }
+        if (t.getTargetUserId() != null) {
+            userRepository.findById(t.getTargetUserId()).ifPresent(u -> sb.append(" / ").append(u.getFullName()));
+        }
+        return sb.toString();
+    }
+
+    private static LocalDate parseQueryDate(String iso) {
+        if (iso == null || iso.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(iso);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private static boolean onDate(RoutineRun run, LocalDate date) {
+        ZoneId zone = ZoneId.of("America/Sao_Paulo");
+        if (run.getDueAt() != null && run.getDueAt().atZone(zone).toLocalDate().equals(date)) {
+            return true;
+        }
+        return run.getScheduledFor() != null && run.getScheduledFor().atZone(zone).toLocalDate().equals(date);
     }
 
     private static void putAmbiguity(VoiceIntent intent, String field, String query, List<VoiceOption> options) {

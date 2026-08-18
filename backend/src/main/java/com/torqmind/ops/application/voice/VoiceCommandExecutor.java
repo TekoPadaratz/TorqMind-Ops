@@ -13,6 +13,7 @@ import com.torqmind.ops.domain.task.TaskType;
 import com.torqmind.ops.infrastructure.persistence.RoutineRunRepository;
 import com.torqmind.ops.infrastructure.persistence.RoutineTemplateRepository;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
+import com.torqmind.ops.shared.api.ForbiddenException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -60,6 +61,8 @@ public class VoiceCommandExecutor {
             case "ADD_COMMENT" -> addComment(me, intent, resolved);
             case "OPEN_TASK" -> open(resolved);
             case "LIST_TASKS" -> list(me, intent);
+            case "QUERY_TASK" -> queryTask(intent, resolved);
+            case "DELETE_TASK" -> deleteTask(me, intent, resolved);
             default -> throw new IllegalArgumentException("Ação de voz não suportada.");
         };
     }
@@ -88,6 +91,8 @@ public class VoiceCommandExecutor {
             case "OPEN_TASK" -> "Abrir \"" + nvl(resolved.getTaskTitle(), "a tarefa") + "\".";
             case "LIST_TASKS" -> "Listar tarefas"
                     + (intent.getRequestedStatus() != null ? " (" + intent.getRequestedStatus() + ")" : "") + ".";
+            case "QUERY_TASK" -> "Consultar status de \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma tarefa")) + "\".";
+            case "DELETE_TASK" -> "Excluir a rotina \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma rotina")) + "\".";
             default -> "Confirmar comando.";
         };
     }
@@ -273,6 +278,84 @@ public class VoiceCommandExecutor {
         return out;
     }
 
+    private Map<String, Object> queryTask(VoiceIntent intent, VoiceResolved resolved) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        String title = nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "essa rotina"));
+        String who = resolved.getUserName();
+        if (resolved.getRunId() == null) {
+            String alvo = who != null ? " para " + who : "";
+            String answer = "Não encontrei a rotina \"" + title + "\"" + alvo + " para a data consultada.";
+            out.put("entityType", "QUERY");
+            out.put("message", answer);
+            out.put("spoken", answer);
+            return out;
+        }
+        RoutineRun run = runRepository.findById(resolved.getRunId()).orElse(null);
+        if (run == null) {
+            String answer = "Não encontrei a rotina \"" + title + "\".";
+            out.put("entityType", "QUERY");
+            out.put("message", answer);
+            out.put("spoken", answer);
+            return out;
+        }
+        String answer = switch (run.getStatus()) {
+            case CONCLUIDA -> "Sim. " + (who != null ? who : "O responsável") + " concluiu a rotina \"" + title + "\"" + concludedWhen(run) + ".";
+            case EM_ANDAMENTO -> "A rotina \"" + title + "\" está em andamento" + (who != null ? " com " + who : "") + ".";
+            case ATRASADA -> "Ainda não. A rotina \"" + title + "\" está atrasada.";
+            case REJEITADA -> "A rotina \"" + title + "\" foi rejeitada.";
+            default -> "Ainda não. O status da rotina \"" + title + "\" é pendente.";
+        };
+        out.put("entityType", "ROUTINE_RUN");
+        out.put("entityId", run.getId());
+        out.put("message", answer);
+        out.put("spoken", answer);
+        return out;
+    }
+
+    private static String concludedWhen(RoutineRun run) {
+        if (run.getCompletedAt() == null) {
+            return "";
+        }
+        var t = run.getCompletedAt().atZone(VoiceDateTimeNormalizer.ZONE).toLocalTime();
+        return String.format(" às %02dh%02d", t.getHour(), t.getMinute());
+    }
+
+    private Map<String, Object> deleteTask(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        String tr = nvl(intent.getTranscript(), "").toLowerCase(java.util.Locale.ROOT);
+        if (tr.contains("todas") || tr.contains("todos") || tr.contains("tudo")) {
+            String answer = "Por segurança, não faço exclusão em massa por voz. Peça para excluir uma rotina específica de cada vez.";
+            out.put("entityType", "REFUSED");
+            out.put("message", answer);
+            out.put("spoken", answer);
+            return out;
+        }
+        String title = nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "essa rotina"));
+        if (resolved.getTemplateId() == null) {
+            String answer = "Não encontrei uma rotina única chamada \"" + title + "\" para excluir. Pode ser mais específico?";
+            out.put("entityType", "QUERY");
+            out.put("message", answer);
+            out.put("spoken", answer);
+            return out;
+        }
+        try {
+            routineService.deleteTemplateAsActor(resolved.getTemplateId(), me);
+        } catch (ForbiddenException ex) {
+            String answer = "Você não tem permissão para excluir a rotina \"" + title + "\".";
+            out.put("entityType", "FORBIDDEN");
+            out.put("message", answer);
+            out.put("spoken", answer);
+            return out;
+        }
+        String answer = "Pronto. Removi a rotina \"" + title + "\".";
+        out.put("entityType", "ROUTINE_TEMPLATE");
+        out.put("entityId", resolved.getTemplateId());
+        out.put("message", answer);
+        out.put("spoken", answer);
+        out.put("navigateTo", "/routines");
+        return out;
+    }
+
     private Map<String, Object> list(AppUserPrincipal me, VoiceIntent intent) {
         Long cid = tenantResolver.resolveListCompanyId(me, null);
         Long bid = tenantResolver.branchFilterOrNull(me);
@@ -302,10 +385,31 @@ public class VoiceCommandExecutor {
             templateRepository.findById(run.getTemplateId()).ifPresent(t -> row.put("title", t.getTitle()));
             items.add(row);
         }
+        String statusLabel = intent.getRequestedStatus() == null ? "" : switch (intent.getRequestedStatus()) {
+            case "ATRASADA" -> " atrasada(s)";
+            case "PENDENTE" -> " pendente(s)";
+            case "HOJE" -> " para hoje";
+            default -> "";
+        };
+        String spoken;
+        if (items.isEmpty()) {
+            spoken = "Nenhuma rotina" + statusLabel + " encontrada.";
+        } else {
+            StringBuilder sb = new StringBuilder("Você tem " + items.size() + " rotina" + (items.size() > 1 ? "s" : "") + statusLabel + ".");
+            int n = Math.min(3, items.size());
+            for (int idx = 0; idx < n; idx++) {
+                Object ti = items.get(idx).get("title");
+                if (ti != null) {
+                    sb.append(idx == 0 ? " " : ", ").append(ti);
+                }
+            }
+            spoken = sb.toString();
+        }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("entityType", "ROUTINE_RUN_LIST");
         out.put("items", items);
-        out.put("message", items.isEmpty() ? "Nenhuma tarefa encontrada." : items.size() + " tarefa(s).");
+        out.put("message", spoken);
+        out.put("spoken", spoken);
         out.put("navigateTo", "/routines");
         return out;
     }

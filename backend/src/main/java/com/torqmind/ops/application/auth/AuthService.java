@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -19,11 +20,18 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final CredentialService credentialService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            CredentialService credentialService
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.credentialService = credentialService;
     }
 
     @Transactional(noRollbackFor = AuthException.class)
@@ -63,7 +71,41 @@ public class AuthService {
                 user.getUsername(),
                 user.getRole(),
                 user.getCompanyId(),
+                user.getBranchId(),
+                user.getPasswordEpoch()
+        );
+        return new LoginResult(
+                token,
+                user.getId(),
+                user.getUsername(),
+                user.getFullName(),
+                user.getRole(),
+                user.getCompanyId(),
                 user.getBranchId()
+        );
+    }
+
+    @Transactional
+    public LoginResult changeOwnPassword(UUID userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthException("Usuário ou senha inválidos."));
+        if (!user.isActive()) {
+            throw new AuthException("Usuário inativo.");
+        }
+        if (!credentialService.matches(user, currentPassword)) {
+            throw new IllegalArgumentException("Senha atual incorreta.");
+        }
+        if (credentialService.matches(user, newPassword)) {
+            throw new IllegalArgumentException("A nova senha deve ser diferente da atual.");
+        }
+        credentialService.assignPassword(user, userId, newPassword, CredentialService.ACTION_SELF_CHANGE, true);
+        String token = jwtService.generate(
+                user.getId(),
+                user.getUsername(),
+                user.getRole(),
+                user.getCompanyId(),
+                user.getBranchId(),
+                user.getPasswordEpoch()
         );
         return new LoginResult(
                 token,

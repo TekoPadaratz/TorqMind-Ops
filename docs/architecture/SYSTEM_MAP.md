@@ -8,7 +8,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 - Ocorrências: (`ABERTA|EM_ATENDIMENTO|AGUARDANDO_VALIDACAO|ENCERRADA|REJEITADA`); tipo opcional `GENERIC | FUEL_QUALITY_RECEIPT` (análise de qualidade no recebimento; 1 recebimento = 1 ocorrência; rascunho `ABERTA`, finalização `ENCERRADA` + PDF no `StorageProvider`)
 - Catálogo: empresas, filiais, setores, usuários (sem MASTER na lista operacional)
 - Notificações: por destinatário; `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes)
-- Voz: rascunho → confirmação → mesmos serviços da UI
+- Voz: comando falado → execução direta (criar/consultar/listar) ou confirmação (excluir/rejeitar; recusa exclusão em massa); app responde **falando** (TTS pt-BR); mesmos serviços da UI
 - Storage: `StorageProvider` (local | Google Drive OAuth)
 
 ## HTTP (`/api`)
@@ -34,16 +34,20 @@ Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `tran
 - `TaskDetailService` — comentários, anexos (assinatura real), detalhe
 - `TenantResolver` + `TaskAuthorization` — empresa/filial e responsável nominal
 - `NotificationService.notifyCounterpart`
-- `VoiceDraftService` / `VoiceCommandExecutor` / `AuthorizedEntityResolver`
+- `CredentialService` — hash, época JWT e auditoria de senha (`CREATED|SELF_CHANGE|ADMIN_RESET`)
+- `VoiceDraftService` / `VoiceCommandExecutor` / `AuthorizedEntityResolver` — voz: consulta/exclusão por nome, defaults por empresa
+- `CompanySettingsService` — config por empresa (foto/comentário/lembrete), só MASTER
 
 ## Tabelas
 
-`companies`, `branches`, `sectors`, `auth_users`, `routine_templates`, `routine_runs`, `occurrences`, `fuel_quality_analyses` (V14), `notifications`, `task_comments`, `task_attachments`, `task_activities`, `voice_drafts` (V12)
+`companies`, `branches`, `sectors`, `auth_users`, `password_change_events` (V15), `routine_templates`, `routine_runs`, `occurrences`, `fuel_quality_analyses` (V14), `notifications`, `task_comments`, `task_attachments`, `task_activities`, `voice_drafts` (V12), `company_settings` (V16)
 
 ## Auth
 
-JWT HS256 (`uid`, `role`, `cid`, `bid`). Papéis: MASTER, OWNER, MANAGER, OPERATOR.  
-Filtros: `JwtAuthFilter`, rate limit de login, rate limit de voz.
+JWT HS256 (`uid`, `role`, `cid`, `bid`, `pwe` = época da senha). Papéis: MASTER, OWNER, MANAGER, OPERATOR.  
+Filtros: `JwtAuthFilter` recarrega o usuário do banco e rejeita token se a conta estiver inativa ou se `pwe` não bater com `auth_users.password_epoch`. Rate limit de login, rate limit de voz.
+
+Troca de senha: `POST /api/auth/password` (própria senha; senha atual errada = 422). MASTER redefine via `PUT /api/admin/users/{id}/password`. Ambas sobem `password_epoch` e gravam `password_change_events` (`CREATED|SELF_CHANGE|ADMIN_RESET`) sem guardar a senha. Sem recuperação por e-mail.
 
 ## Fluxo criar → concluir
 

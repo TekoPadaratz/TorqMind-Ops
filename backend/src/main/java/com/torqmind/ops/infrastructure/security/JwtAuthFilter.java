@@ -1,5 +1,7 @@
 package com.torqmind.ops.infrastructure.security;
 
+import com.torqmind.ops.domain.user.User;
+import com.torqmind.ops.infrastructure.persistence.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,9 +20,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtAuthFilter(JwtService jwtService) {
+    public JwtAuthFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -33,11 +37,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7).trim();
             try {
-                AppUserPrincipal principal = jwtService.parse(token);
-                var authority = new SimpleGrantedAuthority("ROLE_" + principal.role());
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        principal, null, List.of(authority));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                JwtService.ParsedToken parsed = jwtService.parseToken(token);
+                User user = userRepository.findById(parsed.principal().userId()).orElse(null);
+                if (user == null || !user.isActive() || parsed.passwordEpoch() != user.getPasswordEpoch()) {
+                    SecurityContextHolder.clearContext();
+                } else {
+                    AppUserPrincipal principal = new AppUserPrincipal(
+                            user.getId(),
+                            user.getUsername(),
+                            user.getRole(),
+                            user.getCompanyId(),
+                            user.getBranchId()
+                    );
+                    var authority = new SimpleGrantedAuthority("ROLE_" + principal.role());
+                    var authentication = new UsernamePasswordAuthenticationToken(
+                            principal, null, List.of(authority));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             } catch (Exception ex) {
                 SecurityContextHolder.clearContext();
             }

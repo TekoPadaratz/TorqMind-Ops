@@ -83,13 +83,12 @@ public class RoutineController {
         return routineService.createTemplate(template, me.userId());
     }
 
-    @PreAuthorize("hasAnyRole('MASTER','OWNER')")
     @DeleteMapping("/templates/{id}")
     public Map<String, Object> deactivateTemplate(
             @PathVariable Long id,
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
-        routineService.deactivateTemplate(id, me);
+        routineService.deleteTemplateAsActor(id, me);
         return Map.of("id", id, "active", false);
     }
 

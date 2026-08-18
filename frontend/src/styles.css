@@ -695,3 +695,43 @@ textarea { min-height: 96px; resize: vertical; }
 }
 .quality-form .card-head h2 { font-size: 1.05rem; }
 
+.list li.user-admin-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.user-admin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.user-admin-head .chips { margin-top: 0; flex-wrap: wrap; }
+.user-admin-body { padding-top: 8px; border-top: 1px solid var(--border); }
+.section-subtitle { margin: 0; font-size: 0.95rem; }
+.password-history {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.password-history li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+.btn-ghost.active { border-color: var(--accent); color: var(--accent); }
+

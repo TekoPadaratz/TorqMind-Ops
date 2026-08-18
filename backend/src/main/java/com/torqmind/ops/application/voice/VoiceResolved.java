@@ -9,6 +9,7 @@ public class VoiceResolved {
     private Long sectorId;
     private Long runId;
     private Long occurrenceId;
+    private Long templateId;
     private String taskType;
     private String userName;
     private String branchName;
@@ -28,6 +29,8 @@ public class VoiceResolved {
     public void setRunId(Long runId) { this.runId = runId; }
     public Long getOccurrenceId() { return occurrenceId; }
     public void setOccurrenceId(Long occurrenceId) { this.occurrenceId = occurrenceId; }
+    public Long getTemplateId() { return templateId; }
+    public void setTemplateId(Long templateId) { this.templateId = templateId; }
     public String getTaskType() { return taskType; }
     public void setTaskType(String taskType) { this.taskType = taskType; }
     public String getUserName() { return userName; }

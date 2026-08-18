@@ -95,6 +95,25 @@ public class TenantResolver {
         return me != null && "MASTER".equals(me.role());
     }
 
+    /** MASTER: qualquer uma; OWNER: toda a empresa; demais: só a que criou. Executor não exclui. */
+    public static boolean canDeleteTemplate(String role, java.util.UUID actorId, Long actorCompanyId,
+                                            Long templateCompanyId, java.util.UUID templateCreatedBy) {
+        if (role == null) {
+            return false;
+        }
+        if ("MASTER".equalsIgnoreCase(role)) {
+            return true;
+        }
+        boolean sameCompany = templateCompanyId != null && templateCompanyId.equals(actorCompanyId);
+        if (!sameCompany) {
+            return false;
+        }
+        if ("OWNER".equalsIgnoreCase(role)) {
+            return true;
+        }
+        return actorId != null && actorId.equals(templateCreatedBy);
+    }
+
     public void assertCanAccess(AppUserPrincipal me, Long resourceCompanyId, Long resourceBranchId) {
         if (me == null) {
             throw new ForbiddenException("Não autenticado.");

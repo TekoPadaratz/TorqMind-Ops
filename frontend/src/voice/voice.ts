@@ -26,6 +26,7 @@ export type VoiceIntent = {
   warnings?: string[];
   requiresPhoto?: boolean;
   requiresComment?: boolean;
+  requiresConfirmation?: boolean;
 };
 
 export type VoiceDraft = {
@@ -43,6 +44,7 @@ export type VoiceDraft = {
     entityType?: string;
     entityId?: number;
     message?: string;
+    spoken?: string;
     navigateTo?: string;
     items?: Array<{ id: number; title?: string; status?: string }>;
   };
@@ -97,6 +99,20 @@ export function browserSpeechRecognitionSupported(
   scope: Record<string, unknown> = globalThis as unknown as Record<string, unknown>
 ): boolean {
   return browserSpeechRecognitionConstructor(scope) !== null;
+}
+
+export function speak(text: string | null | undefined): void {
+  try {
+    if (typeof window === 'undefined' || !text) return;
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'pt-BR';
+    synth.cancel();
+    synth.speak(utter);
+  } catch {
+    // TTS e best-effort; nunca pode quebrar o fluxo.
+  }
 }
 
 export function taskContextFromPath(pathname: string, title?: string): {

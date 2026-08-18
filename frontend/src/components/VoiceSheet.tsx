@@ -6,6 +6,7 @@ import {
   browserSpeechRecognitionSupported,
   BrowserSpeechRecognition,
   idempotencyKeyFor,
+  speak,
   taskContextFromPath,
   VoiceDraft,
   VoiceStatus,
@@ -300,6 +301,21 @@ export default function VoiceSheet({ open, onClose }: Props) {
       setMessage(d.previewText || 'Preciso de mais informação.');
       return;
     }
+    if (d.status === 'READY_FOR_CONFIRMATION') {
+      if (d.intent?.requiresConfirmation === true) {
+        // Ação destrutiva (excluir/rejeitar): pede confirmação e fala a pergunta.
+        setUi('preview');
+        const question = d.previewText || 'Confirma?';
+        setMessage(question);
+        speak(question);
+        return;
+      }
+      // Execução direta: comando claro e resolvido cria na hora, sem confirmação manual.
+      setUi('processing');
+      setMessage(d.previewText || 'Executando…');
+      void confirm(d);
+      return;
+    }
     setUi('preview');
     setMessage(d.previewText || 'Confira e confirme.');
   }
@@ -330,19 +346,21 @@ export default function VoiceSheet({ open, onClose }: Props) {
     }
   }
 
-  async function confirm() {
-    if (!draft) return;
+  async function confirm(target: VoiceDraft | null = draft) {
+    if (!target) return;
     setBusy(true);
     try {
-      const key = idempotencyKeyFor(draft.id);
-      const updated = await apiPostIdempotent(`/voice/drafts/${draft.id}/confirm`, { idempotencyKey: key }, key);
+      const key = idempotencyKeyFor(target.id);
+      const updated = await apiPostIdempotent(`/voice/drafts/${target.id}/confirm`, { idempotencyKey: key }, key);
       if (updated.status === 'NEEDS_INPUT') {
         applyDraft(updated);
         return;
       }
       setDraft(updated);
       setUi('success');
-      setMessage(updated.result?.message || 'Pronto.');
+      const spokenAnswer = updated.result?.spoken || updated.result?.message || 'Pronto.';
+      setMessage(spokenAnswer);
+      speak(spokenAnswer);
       const to = updated.result?.navigateTo;
       if (to) {
         setTimeout(() => {
@@ -503,7 +521,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
               </div>
             )}
             <div className="voice-actions">
-              <button type="button" className="btn-primary" disabled={busy || (ui === 'needs-input' && ambiguities.length > 0)} onClick={confirm}>
+              <button type="button" className="btn-primary" disabled={busy || (ui === 'needs-input' && ambiguities.length > 0)} onClick={() => confirm()}>
                 Confirmar
               </button>
               <button type="button" className="btn-ghost danger" onClick={cancelDraft}>Cancelar</button>

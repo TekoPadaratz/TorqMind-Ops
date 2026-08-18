@@ -40,7 +40,7 @@ public class JwtService {
         this.expirationMinutes = expirationMinutes;
     }
 
-    public String generate(UUID userId, String username, String role, Long companyId, Long branchId) {
+    public String generate(UUID userId, String username, String role, Long companyId, Long branchId, int passwordEpoch) {
         Instant now = Instant.now();
         Instant exp = now.plus(expirationMinutes, ChronoUnit.MINUTES);
         var builder = Jwts.builder()
@@ -48,6 +48,7 @@ public class JwtService {
                 .subject(username)
                 .claim("uid", userId.toString())
                 .claim("role", role)
+                .claim("pwe", passwordEpoch)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(exp))
                 .signWith(key);
@@ -60,7 +61,7 @@ public class JwtService {
         return builder.compact();
     }
 
-    public AppUserPrincipal parse(String token) {
+    public ParsedToken parseToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(key)
                 .requireIssuer(issuer)
@@ -71,7 +72,24 @@ public class JwtService {
         String role = claims.get("role", String.class);
         Long companyId = claimLong(claims, "cid");
         Long branchId = claimLong(claims, "bid");
-        return new AppUserPrincipal(uid, claims.getSubject(), role, companyId, branchId);
+        return new ParsedToken(
+                new AppUserPrincipal(uid, claims.getSubject(), role, companyId, branchId),
+                claimInt(claims, "pwe")
+        );
+    }
+
+    public AppUserPrincipal parse(String token) {
+        return parseToken(token).principal();
+    }
+
+    public record ParsedToken(AppUserPrincipal principal, int passwordEpoch) {}
+
+    private static int claimInt(Claims claims, String name) {
+        Object v = claims.get(name);
+        if (v instanceof Number n) {
+            return n.intValue();
+        }
+        return 0;
     }
 
     private static Long claimLong(Claims claims, String name) {

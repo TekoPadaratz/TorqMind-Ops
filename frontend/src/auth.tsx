@@ -4,6 +4,7 @@ import { apiLogin, Session } from './api';
 type AuthContextValue = {
   session: Session | null;
   login: (username: string, password: string) => Promise<void>;
+  replaceSession: (next: Session) => void;
   logout: () => void;
 };
 
@@ -33,9 +34,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     async login(username: string, password: string) {
       const result = await apiLogin(username, password);
-      localStorage.setItem('torqmind.token', result.token);
-      localStorage.setItem('torqmind.session', JSON.stringify(result));
-      setSession(result);
+      persist(result);
+    },
+    replaceSession(next: Session) {
+      persist(next);
     },
     logout() {
       localStorage.removeItem('torqmind.token');
@@ -43,6 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
     }
   }), [session]);
+
+  function persist(next: Session) {
+    localStorage.setItem('torqmind.token', next.token);
+    localStorage.setItem('torqmind.session', JSON.stringify(next));
+    setSession(next);
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

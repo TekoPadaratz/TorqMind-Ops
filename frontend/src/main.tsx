@@ -11,6 +11,7 @@ import RoutineDetail from './pages/RoutineDetail';
 import Occurrences from './pages/Occurrences';
 import OccurrenceDetail from './pages/OccurrenceDetail';
 import Admin from './pages/Admin';
+import Account from './pages/Account';
 import Notifications from './pages/Notifications';
 import VoiceSheet from './components/VoiceSheet';
 import FuelQualityOccurrencePage from './pages/FuelQualityOccurrence';
@@ -81,6 +82,12 @@ function Shell() {
             {unread > 0 && !onNotifications && <span className="badge">{unread}</span>}
           </button>
           <button
+            className={`btn-ghost ${location.pathname === '/account' ? 'active' : ''}`}
+            onClick={() => navigate('/account')}
+          >
+            Senha
+          </button>
+          <button
             className="btn-ghost"
             onClick={() => {
               logout();
@@ -137,6 +144,7 @@ function App() {
             <Route path="/occurrences/new/fuel-quality" element={<FuelQualityOccurrencePage />} />
             <Route path="/occurrences/:id" element={<OccurrenceDetail />} />
             <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
+            <Route path="/account" element={<Account />} />
             <Route path="/notifications" element={<Notifications />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

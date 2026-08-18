@@ -13,6 +13,12 @@ A voz **não** cria atalho. Mesmos serviços da UI.
 
 Gerente/funcionário: create força `branchId` do usuário. Catálogo de alvos **não lista MASTER**.
 
+## Cadastro e senha
+
+Só MASTER cria/edita usuário, redefine senha, desbloqueia e vê o histórico. Usuário comum troca a própria senha em `/account` (senha atual + nova + confirmação). Política: mínimo 8 caracteres, letra e número. Username não muda depois do cadastro.
+
+Não desativar a própria conta. Não desativar nem rebaixar o último MASTER ativo. Reset/troca invalida sessões JWT anteriores (`password_epoch`). Histórico registra ator, ação e horário — nunca a senha. Sem “esqueci minha senha” por e-mail nesta fase.
+
 ## Isolamento
 
 Listagens e resolução de nomes: empresa do JWT; MANAGER/OPERATOR filtram filial.  
@@ -45,4 +51,12 @@ Tipo `FUEL_QUALITY_RECEIPT`: rascunho permanece `ABERTA`; o checkbox “Finaliza
 
 ## A voz jamais pode
 
-Acessar outro tenant; atribuir fora do catálogo autorizado; executar por outro responsável; aceitar PDF/MIME falso como foto; pular transição; concluir sem evidência; inventar entidade; resolver ambiguidade sozinha; duplicar por retry; gravar no banco fora dos serviços.
+Acessar outro tenant; atribuir fora do catálogo autorizado; executar por outro responsável; aceitar PDF/MIME falso como foto; pular transição; concluir sem evidência; inventar entidade; resolver ambiguidade sozinha; duplicar por retry; gravar no banco fora dos serviços; **exclusão em massa** (recusada, mesmo MASTER/OWNER).
+
+## Voz conversacional e destrutivos (v2)
+
+- Criar/consultar/listar: **execução direta** (sem confirmação) e o app **fala** a resposta (TTS pt-BR).
+- Excluir/rejeitar: **destrutivo → pede confirmação** (fala a pergunta). Excluir só rotina (soft-delete) com permissão: MASTER/OWNER na empresa; criador só a que criou; executor/operador não.
+- Exclusão ambígua (mesmo nome em filiais/usuários) → pergunta "de qual filial/usuário?".
+- Consulta por nome: "o Alfredo executou a rotina X hoje?" → responde o status falando.
+- Config por empresa (só MASTER, `company_settings`): foto/comentário obrigatórios + lembrete padrão; a voz usa esses defaults quando não ditos.

@@ -1,26 +1,32 @@
 package com.torqmind.ops.application.admin;
 
+import com.torqmind.ops.application.auth.CredentialService;
 import com.torqmind.ops.application.storage.DriveFolderService;
 import com.torqmind.ops.application.tenant.TenantAccessService;
 import com.torqmind.ops.domain.company.Branch;
 import com.torqmind.ops.domain.company.Company;
 import com.torqmind.ops.domain.sector.Sector;
+import com.torqmind.ops.domain.user.PasswordChangeEvent;
 import com.torqmind.ops.domain.user.Role;
 import com.torqmind.ops.domain.user.User;
 import com.torqmind.ops.infrastructure.persistence.BranchRepository;
 import com.torqmind.ops.infrastructure.persistence.CompanyRepository;
+import com.torqmind.ops.infrastructure.persistence.PasswordChangeEventRepository;
 import com.torqmind.ops.infrastructure.persistence.SectorRepository;
 import com.torqmind.ops.infrastructure.persistence.UserRepository;
 import com.torqmind.ops.shared.api.ForbiddenException;
 import com.torqmind.ops.shared.documents.DocumentFormats;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class AdminService {
@@ -31,7 +37,8 @@ public class AdminService {
     private final SectorRepository sectorRepository;
     private final CompanyRepository companyRepository;
     private final BranchRepository branchRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final CredentialService credentialService;
+    private final PasswordChangeEventRepository passwordChangeEventRepository;
     private final DriveFolderService driveFolderService;
     private final TenantAccessService tenantAccessService;
 
@@ -40,7 +47,8 @@ public class AdminService {
             SectorRepository sectorRepository,
             CompanyRepository companyRepository,
             BranchRepository branchRepository,
-            PasswordEncoder passwordEncoder,
+            CredentialService credentialService,
+            PasswordChangeEventRepository passwordChangeEventRepository,
             DriveFolderService driveFolderService,
             TenantAccessService tenantAccessService
     ) {
@@ -48,7 +56,8 @@ public class AdminService {
         this.sectorRepository = sectorRepository;
         this.companyRepository = companyRepository;
         this.branchRepository = branchRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.credentialService = credentialService;
+        this.passwordChangeEventRepository = passwordChangeEventRepository;
         this.driveFolderService = driveFolderService;
         this.tenantAccessService = tenantAccessService;
     }
@@ -56,6 +65,7 @@ public class AdminService {
     @Transactional
     public User createUser(
             String actorRole,
+            UUID actorId,
             String username,
             String fullName,
             String role,
@@ -64,9 +74,7 @@ public class AdminService {
             Long branchId,
             Long sectorId
     ) {
-        if (!"MASTER".equals(actorRole)) {
-            throw new ForbiddenException("Somente administrador pode cadastrar usuários.");
-        }
+        requireMaster(actorRole);
         String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
         if (!USERNAME_PATTERN.matcher(normalizedUsername).matches()) {
             throw new IllegalArgumentException("Usuário inválido: use 3 a 40 caracteres (a-z, 0-9, . _ -).");
@@ -74,35 +82,6 @@ public class AdminService {
         if (fullName == null || fullName.isBlank()) {
             throw new IllegalArgumentException("Nome completo é obrigatório.");
         }
-
-        String normalizedRole = role == null ? "" : role.trim().toUpperCase();
-        Role parsedRole;
-        try {
-            parsedRole = Role.valueOf(normalizedRole);
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Função inválida.");
-        }
-
-        if (parsedRole != Role.MASTER) {
-            if (companyId == null) {
-                throw new IllegalArgumentException("Selecione a empresa do usuário.");
-            }
-            if ((parsedRole == Role.MANAGER || parsedRole == Role.OPERATOR) && branchId == null) {
-                throw new IllegalArgumentException("Gerente e funcionário precisam de uma filial.");
-            }
-        }
-        if (companyId != null && companyRepository.findById(companyId).isEmpty()) {
-            throw new IllegalArgumentException("Empresa inválida.");
-        }
-        tenantAccessService.requireBranchInCompany(companyId, branchId);
-        if (sectorId != null) {
-            if (companyId == null) {
-                throw new IllegalArgumentException("Selecione a empresa do setor.");
-            }
-            tenantAccessService.requireTargetSector(companyId, branchId, sectorId);
-        }
-
-        PasswordPolicy.validate(password);
 
         userRepository.findByUsernameIgnoreCase(normalizedUsername).ifPresent(u -> {
             throw new IllegalArgumentException("Já existe um usuário com esse nome.");
@@ -112,19 +91,172 @@ public class AdminService {
         user.setId(UUID.randomUUID());
         user.setUsername(normalizedUsername);
         user.setFullName(fullName.trim());
-        user.setRole(parsedRole.name());
-        user.setPasswordHash(passwordEncoder.encode(password));
         user.setActive(true);
-        user.setCompanyId(companyId);
-        user.setBranchId(branchId);
-        user.setSectorId(sectorId);
         user.setCreatedAt(Instant.now());
+        applyAssignment(user, parseRole(role), companyId, branchId, sectorId);
+        credentialService.assignPassword(user, actorId, password, CredentialService.ACTION_CREATED, false);
+        return user;
+    }
+
+    @Transactional
+    public User updateUser(
+            String actorRole,
+            UUID actorId,
+            UUID userId,
+            String fullName,
+            String role,
+            Long companyId,
+            Long branchId,
+            Long sectorId,
+            Boolean active
+    ) {
+        requireMaster(actorRole);
+        User user = requireUser(userId);
+        if (fullName == null || fullName.isBlank()) {
+            throw new IllegalArgumentException("Nome completo é obrigatório.");
+        }
+        Role parsedRole = parseRole(role);
+        boolean newActive = active == null ? user.isActive() : active;
+        ensureAccountContinuity(user, actorId, parsedRole, newActive);
+        user.setFullName(fullName.trim());
+        user.setActive(newActive);
+        applyAssignment(user, parsedRole, companyId, branchId, sectorId);
+        user.setUpdatedAt(Instant.now());
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public User resetPassword(String actorRole, UUID actorId, UUID userId, String newPassword) {
+        requireMaster(actorRole);
+        User user = requireUser(userId);
+        credentialService.assignPassword(user, actorId, newPassword, CredentialService.ACTION_ADMIN_RESET, true);
+        return user;
+    }
+
+    @Transactional
+    public User unlockUser(String actorRole, UUID userId) {
+        requireMaster(actorRole);
+        User user = requireUser(userId);
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+        user.setUpdatedAt(Instant.now());
         return userRepository.save(user);
     }
 
     public List<User> listUsers() {
-        return userRepository.findAll();
+        return userRepository.findAllByOrderByFullNameAscUsernameAsc();
     }
+
+    public List<PasswordEventView> listPasswordEvents(String actorRole, UUID userId) {
+        requireMaster(actorRole);
+        requireUser(userId);
+        List<PasswordChangeEvent> events = passwordChangeEventRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        Set<UUID> actorIds = events.stream()
+                .map(PasswordChangeEvent::getActorUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, User> actors = userRepository.findAllById(actorIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        return events.stream().map(event -> {
+            User actor = event.getActorUserId() == null ? null : actors.get(event.getActorUserId());
+            String actorName = actor == null ? null : actor.getFullName();
+            String actorUsername = actor == null ? null : actor.getUsername();
+            return new PasswordEventView(
+                    event.getId(),
+                    event.getAction(),
+                    passwordActionLabel(event.getAction()),
+                    event.getActorUserId(),
+                    actorName,
+                    actorUsername,
+                    event.getCreatedAt()
+            );
+        }).toList();
+    }
+
+    private User requireUser(UUID userId) {
+        return userRepository.findById(userId == null ? new UUID(0, 0) : userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário inválido."));
+    }
+
+    private static void requireMaster(String actorRole) {
+        if (!"MASTER".equals(actorRole)) {
+            throw new ForbiddenException("Somente administrador pode gerenciar usuários.");
+        }
+    }
+
+    private Role parseRole(String role) {
+        String normalizedRole = role == null ? "" : role.trim().toUpperCase();
+        try {
+            return Role.valueOf(normalizedRole);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Função inválida.");
+        }
+    }
+
+    private void applyAssignment(User user, Role parsedRole, Long companyId, Long branchId, Long sectorId) {
+        Long resolvedCompany = parsedRole == Role.MASTER ? null : companyId;
+        Long resolvedBranch = parsedRole == Role.MASTER ? null : branchId;
+        Long resolvedSector = parsedRole == Role.MASTER ? null : sectorId;
+        if (parsedRole != Role.MASTER) {
+            if (resolvedCompany == null) {
+                throw new IllegalArgumentException("Selecione a empresa do usuário.");
+            }
+            if ((parsedRole == Role.MANAGER || parsedRole == Role.OPERATOR) && resolvedBranch == null) {
+                throw new IllegalArgumentException("Gerente e funcionário precisam de uma filial.");
+            }
+        }
+        if (resolvedCompany != null && companyRepository.findById(resolvedCompany).isEmpty()) {
+            throw new IllegalArgumentException("Empresa inválida.");
+        }
+        tenantAccessService.requireBranchInCompany(resolvedCompany, resolvedBranch);
+        if (resolvedSector != null) {
+            if (resolvedCompany == null) {
+                throw new IllegalArgumentException("Selecione a empresa do setor.");
+            }
+            tenantAccessService.requireTargetSector(resolvedCompany, resolvedBranch, resolvedSector);
+        }
+        user.setRole(parsedRole.name());
+        user.setCompanyId(resolvedCompany);
+        user.setBranchId(resolvedBranch);
+        user.setSectorId(resolvedSector);
+    }
+
+    private void ensureAccountContinuity(User user, UUID actorId, Role newRole, boolean newActive) {
+        if (!newActive && user.getId().equals(actorId)) {
+            throw new IllegalArgumentException("Você não pode desativar a própria conta.");
+        }
+        boolean wasActiveMaster = user.isActive() && "MASTER".equalsIgnoreCase(user.getRole());
+        boolean remainsActiveMaster = newActive && newRole == Role.MASTER;
+        if (wasActiveMaster && !remainsActiveMaster) {
+            long activeMasters = userRepository.countByRoleIgnoreCaseAndActiveTrue("MASTER");
+            if (activeMasters <= 1) {
+                throw new IllegalArgumentException("Não é possível desativar ou alterar o último administrador.");
+            }
+        }
+    }
+
+    private static String passwordActionLabel(String action) {
+        if ("CREATED".equals(action)) {
+            return "Cadastro";
+        }
+        if ("SELF_CHANGE".equals(action)) {
+            return "Troca pelo usuário";
+        }
+        if ("ADMIN_RESET".equals(action)) {
+            return "Redefinição pelo administrador";
+        }
+        return action;
+    }
+
+    public record PasswordEventView(
+            Long id,
+            String action,
+            String actionLabel,
+            UUID actorUserId,
+            String actorName,
+            String actorUsername,
+            Instant createdAt
+    ) {}
 
     @Transactional
     public Sector createSector(String name, Long companyId, Long branchId) {

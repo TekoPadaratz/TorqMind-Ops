@@ -25,16 +25,7 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         AuthService.LoginResult result = authService.login(request.username(), request.password());
-        return new LoginResponse(
-                result.token(),
-                result.userId().toString(),
-                result.username(),
-                result.fullName(),
-                result.role(),
-                RoleLabels.pt(result.role()),
-                result.companyId(),
-                result.branchId()
-        );
+        return toLogin(result);
     }
 
     @GetMapping("/me")
@@ -49,7 +40,36 @@ public class AuthController {
         );
     }
 
+    @PostMapping("/password")
+    public LoginResponse changePassword(
+            @AuthenticationPrincipal AppUserPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        AuthService.LoginResult result = authService.changeOwnPassword(
+                principal.userId(),
+                request.currentPassword(),
+                request.newPassword()
+        );
+        return toLogin(result);
+    }
+
+    private static LoginResponse toLogin(AuthService.LoginResult result) {
+        return new LoginResponse(
+                result.token(),
+                result.userId().toString(),
+                result.username(),
+                result.fullName(),
+                result.role(),
+                RoleLabels.pt(result.role()),
+                result.companyId(),
+                result.branchId()
+        );
+    }
+
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {
+    }
+
+    public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {
     }
 
     public record LoginResponse(

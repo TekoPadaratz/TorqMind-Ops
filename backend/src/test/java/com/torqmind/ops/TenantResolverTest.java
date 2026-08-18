@@ -30,4 +30,15 @@ class TenantResolverTest {
         AppUserPrincipal master = new AppUserPrincipal(UUID.randomUUID(), "a", "MASTER", null, null);
         Assertions.assertDoesNotThrow(() -> resolver.assertCanAccess(master, 9L, 9L));
     }
+
+    @Test
+    void deletePermissionRules() {
+        UUID creator = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        Assertions.assertTrue(TenantResolver.canDeleteTemplate("MASTER", other, null, 1L, creator));
+        Assertions.assertTrue(TenantResolver.canDeleteTemplate("OWNER", other, 1L, 1L, creator));
+        Assertions.assertFalse(TenantResolver.canDeleteTemplate("OWNER", other, 2L, 1L, creator));
+        Assertions.assertTrue(TenantResolver.canDeleteTemplate("MANAGER", creator, 1L, 1L, creator));
+        Assertions.assertFalse(TenantResolver.canDeleteTemplate("OPERATOR", other, 1L, 1L, creator));
+    }
 }

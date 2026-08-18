@@ -22,7 +22,7 @@ class DeterministicVoiceIntentProviderTest {
         Assertions.assertTrue(Boolean.TRUE.equals(intent.getRequiresComment()));
         Assertions.assertEquals("08:00", intent.getStartTime());
         Assertions.assertEquals("10:00", intent.getDueTime());
-        Assertions.assertTrue(Boolean.TRUE.equals(intent.getRequiresConfirmation()));
+        Assertions.assertEquals(Boolean.FALSE, intent.getRequiresConfirmation());
     }
 
     @Test
@@ -78,6 +78,89 @@ class DeterministicVoiceIntentProviderTest {
         VoiceIntent c = provider.interpret("registrar análise de combustível etanol", null);
         Assertions.assertEquals("OPEN_QUALITY_ANALYSIS", c.getAction());
         Assertions.assertEquals("ETANOL", c.getFuel());
+    }
+
+    @Test
+    void createRoutineIsRecognized() {
+        VoiceIntent r = provider.interpret("Criar rotina de limpeza dos banheiros para os gerentes.", null);
+        Assertions.assertEquals("CREATE_TASK", r.getAction());
+        Assertions.assertEquals("Limpeza dos banheiros", r.getTitle());
+
+        VoiceIntent nova = provider.interpret("Nova tarefa de conferir o estoque hoje as nove.", null);
+        Assertions.assertEquals("CREATE_TASK", nova.getAction());
+    }
+
+    @Test
+    void fuelTestingOpensQualityAnalysis() {
+        VoiceIntent a = provider.interpret("Criar ocorrencia de testagem do combustivel.", null);
+        Assertions.assertEquals("OPEN_QUALITY_ANALYSIS", a.getAction());
+
+        VoiceIntent b = provider.interpret("Testagem do combustivel etanol.", null);
+        Assertions.assertEquals("OPEN_QUALITY_ANALYSIS", b.getAction());
+        Assertions.assertEquals("ETANOL", b.getFuel());
+    }
+
+    @Test
+    void richRoutineCommandExtractsAllVariables() {
+        VoiceIntent i = provider.interpret(
+                "Crie uma rotina pro gerente Alfredo de todas as quartas-feiras as 15 horas ele fazer a conferencia do estoque de lubrificantes.",
+                null);
+        Assertions.assertEquals("CREATE_TASK", i.getAction());
+        Assertions.assertEquals("WEEKLY", i.getRecurrence());
+        Assertions.assertEquals("USER", i.getTargetType());
+        Assertions.assertNotNull(i.getTargetUserReference());
+        Assertions.assertTrue(i.getTargetUserReference().toLowerCase().contains("alfredo"));
+        Assertions.assertEquals("15:00", i.getStartTime());
+        Assertions.assertEquals("Conferencia do estoque de lubrificantes", i.getTitle());
+        Assertions.assertNull(i.getReminderBeforeMinutes());
+        Assertions.assertNull(i.getRequiresPhoto());
+        Assertions.assertNull(i.getRequiresComment());
+    }
+
+    @Test
+    void reminderAndPhotoParsing() {
+        VoiceIntent spoken = provider.interpret("Criar tarefa de limpeza hoje as 9 com lembrete de 30 minutos antes.", null);
+        Assertions.assertEquals(30, spoken.getReminderBeforeMinutes().intValue());
+        Assertions.assertNull(spoken.getRequiresPhoto());
+
+        VoiceIntent silent = provider.interpret("Criar tarefa de limpeza hoje as 9 sem foto.", null);
+        Assertions.assertNull(silent.getReminderBeforeMinutes());
+        Assertions.assertEquals(Boolean.FALSE, silent.getRequiresPhoto());
+        Assertions.assertNull(silent.getRequiresComment());
+    }
+
+    @Test
+    void statusQueryByNameIsRecognized() {
+        VoiceIntent q = provider.interpret("O Alfredo executou a rotina de afericao de bomba hoje?", null);
+        Assertions.assertEquals("QUERY_TASK", q.getAction());
+        Assertions.assertNotNull(q.getTargetUserReference());
+        Assertions.assertTrue(q.getTargetUserReference().toLowerCase().contains("alfredo"));
+        Assertions.assertNotNull(q.getTaskReference());
+        Assertions.assertTrue(q.getTaskReference().toLowerCase().contains("afericao de bomba"));
+    }
+
+    @Test
+    void deleteCommandIsRecognized() {
+        VoiceIntent d = provider.interpret("Exclua a rotina de afericao de bomba.", null);
+        Assertions.assertEquals("DELETE_TASK", d.getAction());
+        Assertions.assertNotNull(d.getTaskReference());
+        Assertions.assertTrue(d.getTaskReference().toLowerCase().contains("afericao de bomba"));
+        Assertions.assertEquals(Boolean.TRUE, d.getRequiresConfirmation());
+    }
+
+    @Test
+    void bulkDeleteIsFlaggedForRefusal() {
+        VoiceIntent d = provider.interpret("Exclua todas as rotinas.", null);
+        Assertions.assertEquals("DELETE_TASK", d.getAction());
+        Assertions.assertNull(d.getTaskReference());
+        Assertions.assertFalse(d.getWarnings().isEmpty());
+    }
+
+    @Test
+    void spokenSummaryQueryIsRecognized() {
+        VoiceIntent i = provider.interpret("O que esta pendente hoje?", null);
+        Assertions.assertEquals("LIST_TASKS", i.getAction());
+        Assertions.assertEquals("PENDENTE", i.getRequestedStatus());
     }
 
     @Test

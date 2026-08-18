@@ -21,7 +21,7 @@ Campos conhecidos (extras rejeitados):
 
 `schemaVersion, action, transcript, taskReference, title, description, companyReference, branchReference, cityReference, targetType, targetUserReference, targetSectorReference, recurrence, scheduledDate, startTime, dueTime, reminderBeforeMinutes, requiresPhoto, requiresComment, comment, occurrencePriority, fuel, requestedStatus, missingFields, ambiguities, warnings, confidence, requiresConfirmation`
 
-Ações: `CREATE_TASK | CREATE_OCCURRENCE | START_TASK | ADD_COMMENT | COMPLETE_TASK | REJECT_TASK | OPEN_TASK | OPEN_QUALITY_ANALYSIS | LIST_TASKS`
+Ações: `CREATE_TASK | CREATE_OCCURRENCE | START_TASK | ADD_COMMENT | COMPLETE_TASK | REJECT_TASK | OPEN_TASK | OPEN_QUALITY_ANALYSIS | LIST_TASKS | QUERY_TASK | DELETE_TASK`
 
 `OPEN_QUALITY_ANALYSIS` só abre `/occurrences/new/fuel-quality` (query `fuel=` se falado). Não persiste ocorrência.
 
@@ -36,9 +36,17 @@ Datas/horas normalizadas em `America/Sao_Paulo`.
 
 Referências viram IDs só contra catálogo autorizado (`AuthorizedEntityResolver`). 0 matches → missing; 2+ → `ambiguities[]` com opções `{id,label}` (id interno **não** é enviado ao cliente — só `key` opaca + label). Cliente escolhe pela chave da opção.
 
-## Confirmação e idempotência
+## Execução, confirmação e voz (v2 — conversacional)
 
-Nenhuma mutação sem confirm. Mesma `Idempotency-Key` + rascunho CONFIRMED devolve o resultado original. Áudio temporário apagado em `finally`.
+- **Execução direta**: comandos não destrutivos (criar, consultar, listar) executam na hora, sem tela de confirmação (`requiresConfirmation=false`). O app **fala a resposta** (TTS `SpeechSynthesis` pt-BR) via `result.spoken`.
+- **Destrutivos exigem confirmação** (`requiresConfirmation=true`): `DELETE_TASK` e `REJECT_TASK` mostram preview e falam a pergunta antes de executar.
+- **Exclusão em massa recusada**: "excluir todas/tudo" nunca executa (mesmo MASTER/OWNER) — resposta de segurança falada.
+- **Exclusão ambígua** (vários com o nome) → `ambiguities[]` com opções por filial/usuário (key `t:ID`); usuário escolhe → confirma → exclui.
+- `DELETE_TASK`: soft-delete de rotina (template) com permissão `TenantResolver.canDeleteTemplate` (MASTER/OWNER na empresa; criador só a sua; executor não).
+- `QUERY_TASK`: consulta status por nome (título+responsável+data) e responde **falando**; não navega.
+- `LIST_TASKS`: resumo falado (contagem + primeiras rotinas), status `PENDENTE|ATRASADA|HOJE`.
+- Idempotência preservada: mesma `Idempotency-Key` + rascunho CONFIRMED devolve o resultado original. Áudio temporário apagado em `finally`.
+- **Defaults por empresa** (`company_settings`, V16, só MASTER): foto/comentário obrigatórios e lembrete padrão preenchem o que não foi dito em `CREATE_TASK` (via `VoiceDraftService.applyCompanyDefaults`).
 
 ## Segurança
 

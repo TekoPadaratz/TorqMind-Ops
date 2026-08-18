@@ -46,8 +46,17 @@ public class User {
     @Column(name = "locked_until")
     private Instant lockedUntil;
 
+    @Column(name = "password_epoch", nullable = false)
+    private int passwordEpoch = 0;
+
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
+
     @Column(name = "created_at")
     private Instant createdAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 
     public UUID getId() {
         return id;
@@ -137,11 +146,35 @@ public class User {
         this.lockedUntil = lockedUntil;
     }
 
+    public int getPasswordEpoch() {
+        return passwordEpoch;
+    }
+
+    public void setPasswordEpoch(int passwordEpoch) {
+        this.passwordEpoch = passwordEpoch;
+    }
+
+    public Instant getPasswordChangedAt() {
+        return passwordChangedAt;
+    }
+
+    public void setPasswordChangedAt(Instant passwordChangedAt) {
+        this.passwordChangedAt = passwordChangedAt;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
