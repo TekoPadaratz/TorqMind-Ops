@@ -52,6 +52,11 @@ Abrir no tenant. Transições via `StatusRules`. Comentário/anexo pelos mesmos 
 
 Tipo `FUEL_QUALITY_RECEIPT`: rascunho permanece `ABERTA`; o checkbox “Finalizar ocorrência ao salvar” vai a `ENCERRADA` (regra específica em `StatusRules`). Sem reprovação automática. Reabertura segue o fluxo genérico (hoje terminal). Snapshot do posto fica na análise.
 
+## Relatórios e exportações
+
+- **Relatório operacional (PDF)**: `GET /api/dashboard/report.pdf?from=&to=` gera um PDF do período com rotinas agendadas no intervalo e ocorrências abertas no intervalo: KPIs (total, concluídas, % no prazo, pendentes/andamento/atrasadas/rejeitadas), envelhecimento dos atrasos (situação atual), ranking por filial (só na visão da empresa) e a lista de tarefas atrasadas. Respeita o tenant: MANAGER/OPERATOR só a filial do JWT; OWNER/MASTER a empresa inteira.
+- **CSV**: rotinas em `GET /api/routines/runs/export.csv` e ocorrências em `GET /api/occurrences/export.csv` (delimitador `;`, BOM UTF-8 para Excel pt-BR), respeitando os mesmos filtros de tenant e o filtro de status opcional.
+
 ## Notificações
 
 `notifyCounterpart(actor, recipient, …)` — nunca o actor. MASTER ativos recebem cópia (fase de testes). Marcar lidas não apaga.

@@ -12,7 +12,10 @@ import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -50,6 +53,38 @@ public class OccurrenceService {
             return occurrenceRepository.findByCompanyIdOrderByCreatedAtDesc(companyId);
         }
         return occurrenceRepository.findByCompanyIdAndStatusOrderByCreatedAtDesc(companyId, status);
+    }
+
+    private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
+
+    /** Exporta ocorrencias filtradas em CSV (';', BOM UTF-8 p/ Excel pt-BR). */
+    public byte[] exportCsv(Long companyId, Long branchId, OccurrenceStatus status) {
+        List<Occurrence> items = list(companyId, branchId, status);
+        DateTimeFormatter dt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZONE);
+        StringBuilder sb = new StringBuilder("\uFEFF");
+        sb.append("id;titulo;status;prioridade;tipo;aberta_em;encerrada_em\n");
+        for (Occurrence o : items) {
+            sb.append(o.getId()).append(';')
+                    .append(csvCell(o.getTitle())).append(';')
+                    .append(o.getStatus().name()).append(';')
+                    .append(csvCell(o.getPriority())).append(';')
+                    .append(o.getKind() == null ? "" : o.getKind().name()).append(';')
+                    .append(csvDate(dt, o.getCreatedAt())).append(';')
+                    .append(csvDate(dt, o.getFinalizedAt())).append('\n');
+        }
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        String v = value.replace("\"", "\"\"");
+        return (v.contains(";") || v.contains("\"") || v.contains("\n")) ? '"' + v + '"' : v;
+    }
+
+    private static String csvDate(DateTimeFormatter dt, Instant instant) {
+        return instant == null ? "" : dt.format(instant);
     }
 
     public Occurrence get(Long id, AppUserPrincipal me) {

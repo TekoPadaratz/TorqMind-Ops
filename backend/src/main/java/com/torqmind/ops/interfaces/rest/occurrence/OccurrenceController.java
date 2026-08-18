@@ -15,6 +15,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -64,6 +66,21 @@ public class OccurrenceController {
         Long cid = tenantResolver.resolveListCompanyId(me, companyId);
         Long branchId = tenantResolver.branchFilterOrNull(me);
         return fuelQualityAnalysisService.listItems(occurrenceService.list(cid, branchId, status));
+    }
+
+    @GetMapping("/export.csv")
+    public ResponseEntity<byte[]> exportCsv(
+            @AuthenticationPrincipal AppUserPrincipal me,
+            @RequestParam(required = false) Long companyId,
+            @RequestParam(required = false) OccurrenceStatus status
+    ) {
+        Long cid = tenantResolver.resolveListCompanyId(me, companyId);
+        Long branchId = tenantResolver.branchFilterOrNull(me);
+        byte[] csv = occurrenceService.exportCsv(cid, branchId, status);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=ocorrencias.csv")
+                .body(csv);
     }
 
     @GetMapping("/quality-receipts/defaults")

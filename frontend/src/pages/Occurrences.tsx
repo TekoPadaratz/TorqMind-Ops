@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiGet, apiPost, apiUpload } from '../api';
+import { apiBlob, apiGet, apiPost, apiUpload } from '../api';
 import { qualityAnalysisPath } from '../fuel';
 
 type Occurrence = {
@@ -66,6 +66,24 @@ export default function Occurrences() {
 
   function removePending(index: number) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function exportCsv() {
+    setError(null);
+    try {
+      const q = status ? `?status=${status}` : '';
+      const blob = await apiBlob(`/occurrences/export.csv${q}`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ocorrencias.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao exportar');
+    }
   }
 
   async function create(e: React.FormEvent) {
@@ -161,7 +179,10 @@ export default function Occurrences() {
       </section>
 
       <section className="card">
-        <h2>Ocorrências</h2>
+        <div className="row-between">
+          <h2>Ocorrências</h2>
+          <button type="button" className="btn-ghost" onClick={exportCsv}>Exportar CSV</button>
+        </div>
         <div className="filter-row">
           {OCC_FILTERS.map((f) => (
             <button

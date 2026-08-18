@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../api';
+import { openAttachment } from '../components/AuthMedia';
 
 type Summary = {
   routinesPending: number;
@@ -20,11 +21,25 @@ type Metrics = {
   branchRanking: Array<{ branchId: number | null; branchName: string; openCount: number; lateCount: number }>;
 };
 
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+function firstOfMonthIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+}
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<Summary | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [from, setFrom] = useState(firstOfMonthIso());
+  const [to, setTo] = useState(todayIso());
 
   useEffect(() => {
     apiGet('/dashboard/summary')
@@ -120,6 +135,29 @@ export default function Dashboard() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="card">
+        <h2>Relatório do período (PDF)</h2>
+        <div className="time-row">
+          <div className="field-block">
+            <label className="field-label">De</label>
+            <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Até</label>
+            <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={!from || !to || from > to}
+          onClick={() => openAttachment(`/dashboard/report.pdf?from=${from}&to=${to}`)}
+        >
+          Baixar relatório (PDF)
+        </button>
+        <p className="muted small">Rotinas agendadas e ocorrências abertas no período, com indicadores e atrasos.</p>
       </section>
     </div>
   );
