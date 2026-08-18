@@ -23,8 +23,8 @@ Não há segundo clone Git do Ops neste host. O “remoto SSH” **é este diret
 - Containers: `torqmind-ops-saas-{postgres,backend,frontend,nginx}-1`
 - Porta pública: **88→80**
 - DB: `torqmind_ops` (volume `torqmind-ops-saas_pgdata`)
-- Flyway aplicado até **V21** (e-mail do usuário + tokens de recuperação de senha); checklists = V20; segredo TOTP cifrado = V19; 2FA opt-in = V18; geolocalização dos anexos = V17; config por empresa = V16; senha = V15; voz = V12; qualidade combustível = V14
-- E-mail (opcional, best-effort): SMTP via env `SPRING_MAIL_HOST/PORT/USERNAME/PASSWORD` + `MAIL_FROM` + `PUBLIC_BASE_URL`. Sem SMTP configurado, os envios são apenas registrados (nada quebra).
+- Flyway aplicado até **V22** (perfil de e-mail/SMTP no banco `email_settings`, editável pelo MASTER, senha cifrada); e-mail do usuário + recuperação = V21; checklists = V20; segredo TOTP cifrado = V19; 2FA opt-in = V18; geolocalização dos anexos = V17; config por empresa = V16; senha = V15; voz = V12; qualidade combustível = V14
+- E-mail (best-effort): perfil SMTP/remetente **editável pelo MASTER na tela** (Admin → E-mail; tabela `email_settings`, senha cifrada AES-GCM). Fallback por env `MAIL_HOST/PORT/USERNAME/PASSWORD/USE_TLS/USE_SSL` + `MAIL_FROM`/`MAIL_FROM_NAME` + `PUBLIC_BASE_URL` (base do link de recuperação). Sem SMTP, os envios são apenas registrados (nada quebra).
 - URL homologação: `http://task.torqmind.com.br` (porta 88 / host deste stack)
 
 ## Serviços PROTEGIDOS (outro TorqMind) — não tocar

@@ -3,6 +3,7 @@ import { apiGet, apiPost, apiPut } from '../api';
 import { formatCep, formatCnpj, formatUf } from '../masks';
 import UsersAdmin, { AdminUser } from './AdminUsers';
 import AdminSettings from './AdminSettings';
+import AdminEmailSettings from './AdminEmailSettings';
 
 type Option = {
   id: number;
@@ -127,6 +128,8 @@ export default function Admin() {
         onOk={flash}
         onError={fail}
       />
+
+      <AdminEmailSettings onOk={flash} onError={fail} />
 
       <section className="card">
         <h2>Setores</h2>

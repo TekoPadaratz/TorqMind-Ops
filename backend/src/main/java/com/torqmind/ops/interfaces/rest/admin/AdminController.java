@@ -3,6 +3,9 @@ package com.torqmind.ops.interfaces.rest.admin;
 import com.torqmind.ops.application.admin.AdminService;
 import com.torqmind.ops.application.auth.AuthService;
 import com.torqmind.ops.application.company.CompanySettingsService;
+import com.torqmind.ops.application.notification.EmailService;
+import com.torqmind.ops.application.notification.EmailSettingsService;
+import com.torqmind.ops.domain.email.EmailSettings;
 import com.torqmind.ops.domain.company.Branch;
 import com.torqmind.ops.domain.company.Company;
 import com.torqmind.ops.domain.company.CompanySettings;
@@ -35,11 +38,16 @@ public class AdminController {
     private final AdminService adminService;
     private final CompanySettingsService companySettingsService;
     private final AuthService authService;
+    private final EmailSettingsService emailSettingsService;
+    private final EmailService emailService;
 
-    public AdminController(AdminService adminService, CompanySettingsService companySettingsService, AuthService authService) {
+    public AdminController(AdminService adminService, CompanySettingsService companySettingsService,
+                          AuthService authService, EmailSettingsService emailSettingsService, EmailService emailService) {
         this.adminService = adminService;
         this.companySettingsService = companySettingsService;
         this.authService = authService;
+        this.emailSettingsService = emailSettingsService;
+        this.emailService = emailService;
     }
 
     @GetMapping("/users")
@@ -168,6 +176,51 @@ public class AdminController {
                 Boolean.TRUE.equals(request.requireCommentOnComplete()),
                 request.defaultReminderMinutes(),
                 request.checklistsEnabled() == null || request.checklistsEnabled()));
+    }
+
+    @GetMapping("/email-settings")
+    public EmailSettingsResponse getEmailSettings() {
+        return EmailSettingsResponse.from(emailSettingsService.get());
+    }
+
+    @PutMapping("/email-settings")
+    public EmailSettingsResponse updateEmailSettings(@RequestBody EmailSettingsRequest request) {
+        EmailSettings s = emailSettingsService.update(
+                Boolean.TRUE.equals(request.enabled()),
+                request.host(),
+                request.port(),
+                request.username(),
+                request.password(),
+                request.useTls() == null || request.useTls(),
+                Boolean.TRUE.equals(request.useSsl()),
+                request.fromEmail(),
+                request.fromName());
+        return EmailSettingsResponse.from(s);
+    }
+
+    @PostMapping("/email-settings/test")
+    public java.util.Map<String, Object> testEmail(@RequestBody TestEmailRequest request) {
+        emailService.sendTest(request.to());
+        return java.util.Map.of("ok", true);
+    }
+
+    public record EmailSettingsRequest(
+            Boolean enabled, String host, Integer port, String username, String password,
+            Boolean useTls, Boolean useSsl, String fromEmail, String fromName) {
+    }
+
+    public record TestEmailRequest(String to) {
+    }
+
+    public record EmailSettingsResponse(
+            boolean enabled, String host, int port, String username, boolean passwordSet,
+            boolean useTls, boolean useSsl, String fromEmail, String fromName) {
+        static EmailSettingsResponse from(EmailSettings s) {
+            return new EmailSettingsResponse(
+                    s.isEnabled(), s.getHost(), s.getPort(), s.getUsername(),
+                    s.getPassword() != null && !s.getPassword().isBlank(),
+                    s.isUseTls(), s.isUseSsl(), s.getFromEmail(), s.getFromName());
+        }
     }
 
     public record CompanySettingsRequest(
