@@ -167,6 +167,10 @@ input[type="radio"] {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 12px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--surface-2);
   color: var(--ink);
   cursor: pointer;
@@ -232,6 +236,7 @@ input[type="radio"] {
   display: flex;
   flex-direction: column;
   padding-bottom: 78px;
+  overflow-x: hidden;
 }
 
 .app-header {
@@ -241,7 +246,7 @@ input[type="radio"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 18px;
+  padding: max(16px, env(safe-area-inset-top)) 18px 16px;
   background: color-mix(in oklab, var(--bg) 82%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -349,7 +354,7 @@ input[type="radio"] {
     gap: 12px;
   }
   .app-header {
-    padding: 12px 14px;
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
   }
   .app-header h1 { font-size: 1.05rem; }
   .card { padding: 14px; border-radius: 16px; }
@@ -429,14 +434,17 @@ input[type="radio"] {
   text-align: center;
   text-decoration: none;
   color: var(--muted);
-  padding: 10px;
+  padding: 10px 6px;
   border-radius: 12px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 .bottom-nav a.active {
   background: var(--accent);
   color: var(--accent-ink);
+}
+@media (max-width: 360px) {
+  .bottom-nav a { font-size: 0.7rem; padding: 10px 3px; }
 }
 
 /* ---------- Interações / detalhe ---------- */
@@ -521,6 +529,9 @@ input[type="radio"] {
   color: var(--muted);
   border-radius: 999px;
   padding: 7px 14px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -764,4 +775,15 @@ input[type="radio"] {
   background: transparent;
 }
 .btn-ghost.active { border-color: var(--accent); color: var(--accent); }
+
+.secret-code {
+  display: block;
+  padding: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  word-break: break-all;
+  font-size: 0.95rem;
+}
 

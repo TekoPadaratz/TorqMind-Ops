@@ -107,7 +107,7 @@ function TwoFactorCard() {
       {enabled === false && setup && (
         <form className="stack" onSubmit={confirmEnable}>
           <p className="muted small">1. Adicione esta chave no seu app de autenticação:</p>
-          <code style={{ display: 'block', padding: '8px', background: '#f4f4f4', borderRadius: 6, wordBreak: 'break-all' }}>
+          <code className="secret-code">
             {setup.secret}
           </code>
           <p className="muted small" style={{ wordBreak: 'break-all' }}>Ou use o link: {setup.otpauthUri}</p>
