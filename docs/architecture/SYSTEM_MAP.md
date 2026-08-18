@@ -4,7 +4,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 
 ## Módulos
 
-- Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`); ao vencer sem conclusão vira `ATRASADA` e **escalona** (avisa responsável + gerentes da filial + donos)
+- Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`); ao vencer sem conclusão vira `ATRASADA` e **escalona** (avisa responsável + gerentes da filial + donos); **comprovante PDF** por run (`GET /api/routines/runs/{id}/report`: dados, evidências com carimbo data/hora, comentários e histórico)
 - Ocorrências: (`ABERTA|EM_ATENDIMENTO|AGUARDANDO_VALIDACAO|ENCERRADA|REJEITADA`); tipo opcional `GENERIC | FUEL_QUALITY_RECEIPT` (análise de qualidade no recebimento; 1 recebimento = 1 ocorrência; rascunho `ABERTA`, finalização `ENCERRADA` + PDF no `StorageProvider`)
 - Catálogo: empresas, filiais, setores, usuários (sem MASTER na lista operacional)
 - Notificações: por destinatário; `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes)
@@ -31,7 +31,7 @@ Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `tran
 
 - `RoutineService` — criar template/tarefa, gerar runs, transições + evidências
 - `OccurrenceService` — abrir e transicionar
-- `TaskDetailService` — comentários, anexos (assinatura real), detalhe
+- `TaskDetailService` — comentários, anexos (assinatura real), detalhe, comprovante PDF (`renderRoutineRunReport` + `RoutineRunPdfRenderer`)
 - `TenantResolver` + `TaskAuthorization` — empresa/filial e responsável nominal
 - `NotificationService.notifyCounterpart`
 - `CredentialService` — hash, época JWT e auditoria de senha (`CREATED|SELF_CHANGE|ADMIN_RESET`)

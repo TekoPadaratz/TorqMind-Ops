@@ -198,6 +198,15 @@ public class TaskDetailService {
         );
     }
 
+    /** Gera o comprovante PDF de execucao de uma rotina (rastreabilidade). */
+    public byte[] renderRoutineRunReport(Long runId, AppUserPrincipal me) {
+        TaskDetail detail = getRoutineRunDetail(runId, me);
+        RoutineSummary summary = (RoutineSummary) detail.summary();
+        String branchName = summary.branchId() == null ? null
+                : branchRepository.findById(summary.branchId()).map(Branch::getName).orElse(null);
+        return RoutineRunPdfRenderer.render(summary, detail.comments(), detail.attachments(), detail.activities(), branchName);
+    }
+
     public TaskDetail getOccurrenceDetail(Long occId, AppUserPrincipal me) {
         Occurrence occ = tenantAccessService.requireOccurrenceAccess(me, occId);
 

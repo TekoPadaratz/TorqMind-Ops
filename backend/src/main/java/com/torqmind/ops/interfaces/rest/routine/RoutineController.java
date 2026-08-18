@@ -12,6 +12,9 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -134,6 +137,18 @@ public class RoutineController {
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
         return taskDetailService.getRoutineRunDetail(id, me);
+    }
+
+    @GetMapping("/runs/{id}/report")
+    public ResponseEntity<byte[]> runReport(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        byte[] pdf = taskDetailService.renderRoutineRunReport(id, me);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PDF_VALUE)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=comprovante-rotina-" + id + ".pdf")
+                .body(pdf);
     }
 
     @PostMapping("/runs/{id}/comments")

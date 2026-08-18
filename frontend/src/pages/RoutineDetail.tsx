@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { apiGet, apiPost, apiUpload } from '../api';
 import { useAuth } from '../auth';
 import { Thread } from '../components/Thread';
+import { openAttachment } from '../components/AuthMedia';
 
 const ROUTINE_ACTIONS: Record<string, Array<{ label: string; status: string }>> = {
   PENDENTE: [
@@ -132,6 +133,11 @@ export default function RoutineDetail() {
         {!isAssignedExecutor && actions.some((action) => action.status === 'EM_ANDAMENTO' || action.status === 'CONCLUIDA') && (
           <p className="muted small">Somente o responsável pode iniciar ou concluir esta tarefa.</p>
         )}
+        <div className="actions detail-actions">
+          <button type="button" className="btn-ghost" onClick={() => openAttachment(`/routines/runs/${id}/report`)}>
+            Baixar comprovante PDF
+          </button>
+        </div>
         {actions.length > 0 && (
           <div className="actions detail-actions">
             {actions.map((a) => (

@@ -35,6 +35,7 @@ Acesso por ID de outra empresa/filial → 403. MASTER vê tudo.
 - `requiresPhoto`: ao menos um anexo cuja **assinatura de bytes** seja imagem (JPEG/PNG/WEBP/GIF). PDF não conta como foto.
 - Recorrência: `ONCE|DAILY|WEEKLY|MONTHLY|CUSTOM`; timezone `America/Sao_Paulo`; `business_days_only` adia fim de semana/feriado nacional BR.
 - **Atraso e escalonamento**: ao vencer sem conclusão, o run vira `ATRASADA`, avisa o responsável e **escalona** para os gerentes da filial e os donos da empresa (uma vez).
+- **Comprovante PDF**: `GET /api/routines/runs/{id}/report` gera um PDF de rastreabilidade da execução (status, responsável, horários, evidências/anexos com **carimbo data/hora**, comentários e histórico). Respeita o tenant (mesmo controle de acesso do detalhe).
 
 ## Ocorrências
 
