@@ -12,6 +12,7 @@
   --info: #2f6f9f;
   --border: rgba(0, 0, 0, 0.08);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  --app-max: 480px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -99,6 +100,18 @@ input, select, textarea {
   box-sizing: border-box;
 }
 textarea { min-height: 96px; resize: vertical; }
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 
 .password-field {
   position: relative;
@@ -213,7 +226,7 @@ textarea { min-height: 96px; resize: vertical; }
 
 /* ---------- Shell ---------- */
 .app-shell {
-  max-width: 720px;
+  max-width: var(--app-max);
   margin: 0 auto;
   min-height: 100%;
   display: flex;
@@ -303,9 +316,10 @@ textarea { min-height: 96px; resize: vertical; }
   border-radius: 12px;
   background: var(--surface-2);
 }
+.list li > .item-main { flex: 1; min-width: 0; }
 .run-item { align-items: flex-start; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.chips { display: flex; gap: 6px; margin-top: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; }
@@ -401,7 +415,7 @@ textarea { min-height: 96px; resize: vertical; }
   bottom: 0;
   left: 0;
   right: 0;
-  max-width: 720px;
+  max-width: var(--app-max);
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
@@ -628,7 +642,7 @@ textarea { min-height: 96px; resize: vertical; }
 
 .voice-fab {
   position: fixed;
-  right: max(16px, calc(50% - 360px + 16px));
+  right: max(16px, calc(50% - (var(--app-max) / 2) + 16px));
   bottom: calc(88px + env(safe-area-inset-bottom));
   width: 56px;
   height: 56px;
@@ -653,7 +667,7 @@ textarea { min-height: 96px; resize: vertical; }
 }
 .voice-sheet {
   width: 100%;
-  max-width: 720px;
+  max-width: var(--app-max);
   max-height: min(88vh, 720px);
   overflow: auto;
   background: var(--surface);

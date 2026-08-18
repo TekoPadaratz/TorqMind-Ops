@@ -539,7 +539,7 @@ export default function Routines() {
                     onChange={() => toggleSet(selTemplates, setSelTemplates, t.id)}
                   />
                 )}
-                <div>
+                <div className="item-main">
                   <strong>{t.title}</strong>
                   <div className="muted small">{scheduleSummary(t)}</div>
                   {(t.requiresPhoto || t.requiresComment) && (
@@ -613,7 +613,7 @@ export default function Routines() {
                       onChange={() => toggleSet(selRuns, setSelRuns, run.id)}
                     />
                   )}
-                  <div className="clickable" style={{ flex: 1 }} onClick={() => navigate(`/routines/${run.id}`)}>
+                  <div className="clickable item-main" onClick={() => navigate(`/routines/${run.id}`)}>
                     <strong>{template?.title ?? `Tarefa #${run.id}`}</strong>
                     <div className="muted small">Vence: {run.dueAt ? new Date(run.dueAt).toLocaleString() : '—'}</div>
                   </div>
