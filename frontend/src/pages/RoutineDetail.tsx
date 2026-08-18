@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiGet, apiPost, apiUpload } from '../api';
+import { apiGet, apiPost, apiUpload, currentGeo } from '../api';
 import { useAuth } from '../auth';
 import { Thread } from '../components/Thread';
 import { openAttachment } from '../components/AuthMedia';
@@ -76,7 +76,8 @@ export default function RoutineDetail() {
     setError(null);
     setBusy(true);
     try {
-      await apiUpload(`/routines/runs/${id}/attachments`, file);
+      const geo = file.type.startsWith('image/') ? await currentGeo() : null;
+      await apiUpload(`/routines/runs/${id}/attachments`, file, geo);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha no upload');

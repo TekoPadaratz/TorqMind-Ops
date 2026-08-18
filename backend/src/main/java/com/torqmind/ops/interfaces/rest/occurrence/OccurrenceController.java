@@ -180,11 +180,13 @@ public class OccurrenceController {
     public TaskDetailService.AttachmentView addAttachment(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "lat", required = false) Double lat,
+            @RequestParam(value = "lng", required = false) Double lng,
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
         try {
             return taskDetailService.addAttachment(TaskType.OCCURRENCE, id, me,
-                    file.getOriginalFilename(), file.getBytes());
+                    file.getOriginalFilename(), file.getBytes(), lat, lng);
         } catch (IOException ex) {
             throw new IllegalArgumentException("Falha ao ler o arquivo enviado.");
         }

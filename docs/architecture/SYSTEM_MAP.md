@@ -31,7 +31,7 @@ Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `tran
 
 - `RoutineService` — criar template/tarefa, gerar runs, transições + evidências
 - `OccurrenceService` — abrir e transicionar
-- `TaskDetailService` — comentários, anexos (assinatura real), detalhe, comprovante PDF (`renderRoutineRunReport` + `RoutineRunPdfRenderer`)
+- `TaskDetailService` — comentários, anexos (assinatura real, **geo opcional lat/lng**), detalhe, comprovante PDF (`renderRoutineRunReport` + `RoutineRunPdfRenderer`)
 - `TenantResolver` + `TaskAuthorization` — empresa/filial e responsável nominal
 - `NotificationService.notifyCounterpart`
 - `CredentialService` — hash, época JWT e auditoria de senha (`CREATED|SELF_CHANGE|ADMIN_RESET`)

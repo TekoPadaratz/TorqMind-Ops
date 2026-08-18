@@ -17,7 +17,10 @@ class RoutineRunPdfRendererTest {
                 Instant.now(), Instant.now(), Instant.now(), Instant.now(),
                 2L, new TaskDetailService.UserRef("u", "Alfredo"), true, true, "Tudo certo");
 
-        byte[] pdf = RoutineRunPdfRenderer.render(s, List.of(), List.of(), List.of(), "Filial Centro");
+        TaskDetailService.AttachmentView att = new TaskDetailService.AttachmentView(
+                9L, "foto.jpg", "image/jpeg", 1234, "/api/attachments/9",
+                new TaskDetailService.UserRef("u", "Alfredo"), Instant.now(), -23.55052, -46.63331);
+        byte[] pdf = RoutineRunPdfRenderer.render(s, List.of(), List.of(att), List.of(), "Filial Centro");
 
         Assertions.assertTrue(pdf.length > 200);
         // assinatura de PDF: %PDF

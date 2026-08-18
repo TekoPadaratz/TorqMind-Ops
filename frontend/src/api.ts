@@ -79,15 +79,45 @@ export async function apiDelete(path: string) {
   return handle(res);
 }
 
-export async function apiUpload(path: string, file: File) {
+export async function apiUpload(path: string, file: File, geo?: { lat: number; lng: number } | null) {
   const form = new FormData();
   form.append('file', file);
+  if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng)) {
+    form.append('lat', String(geo.lat));
+    form.append('lng', String(geo.lng));
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { ...authHeaders() },
     body: form
   });
   return handle(res);
+}
+
+export function currentGeo(timeoutMs = 6000): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      resolve(null);
+      return;
+    }
+    let done = false;
+    const finish = (v: { lat: number; lng: number } | null) => {
+      if (!done) {
+        done = true;
+        resolve(v);
+      }
+    };
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => finish(null),
+        { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 }
+      );
+    } catch {
+      finish(null);
+    }
+    setTimeout(() => finish(null), timeoutMs + 500);
+  });
 }
 
 export async function apiPatch(path: string, body: unknown) {

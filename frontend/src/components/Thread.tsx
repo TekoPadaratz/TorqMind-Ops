@@ -11,6 +11,8 @@ export type Attachment = {
   url: string;
   uploadedBy: UserRef | null;
   createdAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 export type Activity = {
   id: number;
@@ -83,15 +85,27 @@ export function Thread({
             {images.length > 0 && (
               <div className="gallery">
                 {images.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    className="thumb"
-                    onClick={() => setPreview(a.url)}
-                    title={a.fileName}
-                  >
-                    <AuthImage url={a.url} alt={a.fileName} />
-                  </button>
+                  <figure key={a.id} className="thumb-fig" style={{ margin: 0 }}>
+                    <button
+                      type="button"
+                      className="thumb"
+                      onClick={() => setPreview(a.url)}
+                      title={a.fileName}
+                    >
+                      <AuthImage url={a.url} alt={a.fileName} />
+                    </button>
+                    {a.latitude != null && a.longitude != null && (
+                      <figcaption className="muted small">
+                        <a
+                          href={`https://www.google.com/maps?q=${a.latitude},${a.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          📍 local
+                        </a>
+                      </figcaption>
+                    )}
+                  </figure>
                 ))}
               </div>
             )}

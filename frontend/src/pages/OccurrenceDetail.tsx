@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiGet, apiPost, apiUpload } from '../api';
+import { apiGet, apiPost, apiUpload, currentGeo } from '../api';
 import { Thread } from '../components/Thread';
 import { FuelQualityForm } from './FuelQualityOccurrence';
 import { openAttachment } from '../components/AuthMedia';
@@ -152,7 +152,8 @@ export default function OccurrenceDetail() {
     setError(null);
     setBusy(true);
     try {
-      await apiUpload(`/occurrences/${id}/attachments`, file);
+      const geo = file.type.startsWith('image/') ? await currentGeo() : null;
+      await apiUpload(`/occurrences/${id}/attachments`, file, geo);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha no upload');

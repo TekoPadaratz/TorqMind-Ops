@@ -116,6 +116,12 @@ public class TaskDetailService {
     // ---------------- Anexos ----------------
     @Transactional
     public AttachmentView addAttachment(TaskType type, Long taskId, AppUserPrincipal me, String fileName, byte[] content) {
+        return addAttachment(type, taskId, me, fileName, content, null, null);
+    }
+
+    @Transactional
+    public AttachmentView addAttachment(TaskType type, Long taskId, AppUserPrincipal me, String fileName,
+                                        byte[] content, Double latitude, Double longitude) {
         tenantAccessService.requireTaskAccess(me, type, taskId);
         if (content == null || content.length == 0) {
             throw new IllegalArgumentException("Arquivo vazio.");
@@ -144,6 +150,8 @@ public class TaskDetailService {
         attachment.setSizeBytes(content.length);
         attachment.setChecksumSha256(checksum);
         attachment.setCreatedAt(Instant.now());
+        attachment.setLatitude(latitude);
+        attachment.setLongitude(longitude);
         TaskAttachment saved = attachmentRepository.save(attachment);
 
         activityService.record(type, taskId, actor, "ATTACHMENT", null, null, saved.getFileName());
@@ -331,7 +339,9 @@ public class TaskDetailService {
                 a.getSizeBytes(),
                 "/api/attachments/" + a.getId(),
                 ref(a.getUploadedBy(), names),
-                a.getCreatedAt());
+                a.getCreatedAt(),
+                a.getLatitude(),
+                a.getLongitude());
     }
 
     private ActivityView toActivityView(com.torqmind.ops.domain.task.TaskActivity a, Map<UUID, String> names) {
@@ -380,7 +390,7 @@ public class TaskDetailService {
 
     public record CommentView(Long id, UserRef author, String body, Instant createdAt) {}
 
-    public record AttachmentView(Long id, String fileName, String mimeType, long sizeBytes, String url, UserRef uploadedBy, Instant createdAt) {}
+    public record AttachmentView(Long id, String fileName, String mimeType, long sizeBytes, String url, UserRef uploadedBy, Instant createdAt, Double latitude, Double longitude) {}
 
     public record ActivityView(Long id, UserRef actor, String type, String fromStatus, String toStatus, String message, Instant createdAt) {}
 

@@ -69,15 +69,17 @@ public final class RoutineRunPdfRenderer {
             if (attachments == null || attachments.isEmpty()) {
                 doc.add(new Paragraph("Sem anexos.", small));
             } else {
-                PdfPTable t = new PdfPTable(new float[]{3, 2, 2});
+                PdfPTable t = new PdfPTable(new float[]{3, 2, 2, 2});
                 t.setWidthPercentage(100);
                 headerCell(t, "Arquivo", head);
                 headerCell(t, "Tipo", head);
                 headerCell(t, "Carimbo (data/hora)", head);
+                headerCell(t, "Local (lat, lng)", head);
                 for (AttachmentView a : attachments) {
                     cell(t, nvl(a.fileName(), "-"), normal);
                     cell(t, nvl(a.mimeType(), "-"), normal);
                     cell(t, fmt(a.createdAt()), normal);
+                    cell(t, geo(a.latitude(), a.longitude()), normal);
                 }
                 doc.add(t);
             }
@@ -150,6 +152,13 @@ public final class RoutineRunPdfRenderer {
 
     private static String fmt(Instant i) {
         return i == null ? "-" : DT.format(i);
+    }
+
+    private static String geo(Double lat, Double lng) {
+        if (lat == null || lng == null) {
+            return "-";
+        }
+        return String.format(java.util.Locale.US, "%.5f, %.5f", lat, lng);
     }
 
     private static String nvl(String s, String d) {

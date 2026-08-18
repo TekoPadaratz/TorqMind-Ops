@@ -135,7 +135,7 @@ class FuelQualityAnalysisServiceTest {
                 Mockito.eq(TaskType.OCCURRENCE), Mockito.eq(10L), Mockito.eq(me),
                 Mockito.anyString(), Mockito.any()
         )).thenReturn(new TaskDetailService.AttachmentView(
-                77L, "analise.pdf", "application/pdf", 200, "/api/attachments/77", null, Instant.now()));
+                77L, "analise.pdf", "application/pdf", 200, "/api/attachments/77", null, Instant.now(), null, null));
 
         FuelQualityAnalysisService.QualityReceiptView saved = service.save(me, null, request(true));
         Assertions.assertEquals("ENCERRADA", saved.status());
