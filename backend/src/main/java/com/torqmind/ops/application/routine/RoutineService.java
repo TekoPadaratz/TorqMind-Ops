@@ -317,48 +317,47 @@ public class RoutineService {
         return Map.of("deleted", deleted, "failed", failed);
     }
 
-    public int bulkReassignRuns(List<Long> ids, UUID assignedUserId, AppUserPrincipal me) {
+    public BulkReassignResult bulkReassignRuns(List<Long> ids, UUID assignedUserId, AppUserPrincipal me) {
         String role = me.role() == null ? "" : me.role().toUpperCase();
         boolean isMaster = role.equals("MASTER");
         if (!isMaster && !role.equals("OWNER") && !role.equals("MANAGER")) {
             throw new ForbiddenException("Sem permissao para reatribuir tarefas.");
         }
         if (ids == null || assignedUserId == null) {
-            return 0;
+            return new BulkReassignResult(0, 0);
         }
         User target = userRepository.findById(assignedUserId).filter(User::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario destino invalido."));
         Instant now = Instant.now();
-        int n = 0;
+        int reassigned = 0;
+        int skipped = 0;
         for (Long id : ids) {
             RoutineRun run = runRepository.findById(id).orElse(null);
-            if (run == null) {
+            if (run == null
+                    || (!isMaster && me.companyId() != null && !me.companyId().equals(run.getCompanyId()))
+                    || run.getStatus() == RoutineStatus.CONCLUIDA || run.getStatus() == RoutineStatus.REJEITADA
+                    || (target.getCompanyId() != null && !target.getCompanyId().equals(run.getCompanyId()))
+                    || (target.getBranchId() != null && run.getBranchId() != null
+                            && !target.getBranchId().equals(run.getBranchId()))
+                    || assignedUserId.equals(run.getAssignedUserId())) {
+                skipped++;
                 continue;
             }
-            if (!isMaster && me.companyId() != null && !me.companyId().equals(run.getCompanyId())) {
-                continue;
-            }
-            if (run.getStatus() == RoutineStatus.CONCLUIDA || run.getStatus() == RoutineStatus.REJEITADA) {
-                continue;
-            }
-            if (target.getCompanyId() != null && !target.getCompanyId().equals(run.getCompanyId())) {
-                continue;
-            }
-            if (target.getBranchId() != null && run.getBranchId() != null
-                    && !target.getBranchId().equals(run.getBranchId())) {
-                continue;
-            }
+            String fromName = run.getAssignedUserId() == null ? "ninguem"
+                    : userRepository.findById(run.getAssignedUserId()).map(User::getFullName).orElse("desconhecido");
             run.setAssignedUserId(assignedUserId);
             run.setUpdatedAt(now);
             runRepository.save(run);
             activityService.record(TaskType.ROUTINE_RUN, id, me.userId(), "REASSIGNED", null, null,
-                    "Responsavel alterado");
+                    "de " + fromName + " para " + target.getFullName());
             notificationService.notifyCounterpart(me.userId(), assignedUserId, "ROUTINE_RUN", id,
                     "Tarefa atribuida a voce", "Voce recebeu uma tarefa.");
-            n++;
+            reassigned++;
         }
-        return n;
+        return new BulkReassignResult(reassigned, skipped);
     }
+
+    public record BulkReassignResult(int reassigned, int skipped) {}
 
     @Transactional
     public int generateNow(Long templateId, AppUserPrincipal me) {

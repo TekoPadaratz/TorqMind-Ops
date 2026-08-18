@@ -223,8 +223,8 @@ public class RoutineController {
             @RequestBody BulkReassignRequest request,
             @AuthenticationPrincipal AppUserPrincipal me
     ) {
-        int n = routineService.bulkReassignRuns(request.ids(), parseUuid(request.assignedUserId()), me);
-        return Map.of("reassigned", n);
+        RoutineService.BulkReassignResult r = routineService.bulkReassignRuns(request.ids(), parseUuid(request.assignedUserId()), me);
+        return Map.of("reassigned", r.reassigned(), "skipped", r.skipped());
     }
 
     @PostMapping("/runs/{id}/comments")

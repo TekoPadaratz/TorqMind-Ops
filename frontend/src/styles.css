@@ -401,6 +401,18 @@ input[type="radio"] {
   width: 100%;
   margin: 8px 0;
 }
+.action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--accent) 8%, var(--surface-2));
+  margin: 4px 0 8px;
+}
+.cb-spacer { width: 20px; flex: none; }
+.list li.row-muted { opacity: 0.55; }
 .status-pendente { color: var(--info); }
 .status-em_andamento { color: var(--warn); }
 .status-concluida { color: var(--accent); }

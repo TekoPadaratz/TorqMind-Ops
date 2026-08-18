@@ -39,6 +39,8 @@ function activityLabel(a: Activity): string {
       return `${who} anexou ${a.message ?? 'um arquivo'}`;
     case 'COMMENT':
       return `${who} comentou`;
+    case 'REASSIGNED':
+      return `${who} reatribuiu${a.message ? ' ' + a.message : ''}`;
     default:
       return `${who}: ${a.type}`;
   }

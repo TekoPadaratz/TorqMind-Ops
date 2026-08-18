@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiBlob, apiDelete, apiGet, apiPost } from '../api';
 import { useAuth } from '../auth';
+import { roleLabel } from '../roles';
 
 type Template = {
   id: number;
@@ -42,6 +43,8 @@ const STATUS_LABEL: Record<string, string> = {
   ATRASADA: 'Atrasada',
   REJEITADA: 'Rejeitada'
 };
+
+const REASSIGNABLE = new Set(['PENDENTE', 'EM_ANDAMENTO', 'ATRASADA']);
 
 const RECURRENCE_LABEL: Record<string, string> = {
   ONCE: 'Uma vez',
@@ -107,6 +110,9 @@ export default function Routines() {
   const [selTemplates, setSelTemplates] = useState<Set<number>>(new Set());
   const [selRuns, setSelRuns] = useState<Set<number>>(new Set());
   const [reassignUser, setReassignUser] = useState('');
+  const [reassignMode, setReassignMode] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const usersForBranch = users.filter((user) => branchId === '' || user.branchId === branchId);
   const sectorsForBranch = sectors.filter(
@@ -261,13 +267,34 @@ export default function Routines() {
     setter(next);
   }
 
+  function toggleDeleteMode() {
+    setDeleteMode((m) => !m);
+    setSelTemplates(new Set());
+  }
+
+  function toggleReassignMode() {
+    setNotice(null);
+    setReassignMode((m) => !m);
+    setSelRuns(new Set());
+    setReassignUser('');
+  }
+
+  function onRunRow(run: Run) {
+    if (reassignMode) {
+      if (REASSIGNABLE.has(run.status)) toggleSet(selRuns, setSelRuns, run.id);
+      return;
+    }
+    navigate(`/routines/${run.id}`);
+  }
+
   async function bulkDeleteTemplates() {
     if (selTemplates.size === 0) return;
-    if (!window.confirm(`Excluir ${selTemplates.size} rotina(s) selecionada(s)?`)) return;
+    if (!window.confirm(`Excluir ${selTemplates.size} rotina(s) programada(s) selecionada(s)?`)) return;
     setError(null);
     try {
       await apiPost('/routines/templates/bulk-delete', { ids: Array.from(selTemplates) });
       setSelTemplates(new Set());
+      setDeleteMode(false);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao excluir');
@@ -277,10 +304,19 @@ export default function Routines() {
   async function bulkReassignRuns() {
     if (selRuns.size === 0 || !reassignUser) return;
     setError(null);
+    setNotice(null);
     try {
-      await apiPost('/routines/runs/bulk-reassign', { ids: Array.from(selRuns), assignedUserId: reassignUser });
+      const res = await apiPost('/routines/runs/bulk-reassign', { ids: Array.from(selRuns), assignedUserId: reassignUser });
+      const target = users.find((u) => u.id === reassignUser);
+      const done = res?.reassigned ?? 0;
+      const skipped = res?.skipped ?? 0;
+      setNotice(
+        `${done} tarefa(s) reatribuída(s)${target ? ` para ${target.fullName}` : ''}` +
+          (skipped ? ` · ${skipped} ignorada(s)` : '') + '.'
+      );
       setSelRuns(new Set());
       setReassignUser('');
+      setReassignMode(false);
       await loadRuns(runStatus);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao reatribuir');
@@ -520,10 +556,18 @@ export default function Routines() {
       <section className="card">
         <details>
           <summary className="section-summary">Rotinas programadas ({templates.length})</summary>
-        {canDelete && selTemplates.size > 0 && (
+        {canDelete && templates.length > 0 && (
           <div className="row-between">
-            <span className="muted small">{selTemplates.size} selecionada(s)</span>
-            <button type="button" className="btn-ghost danger" onClick={bulkDeleteTemplates}>Excluir selecionadas</button>
+            <span className="muted small">{deleteMode ? 'Marque as rotinas para excluir.' : ''}</span>
+            <button type="button" className={`btn-ghost ${deleteMode ? 'active' : ''}`} onClick={toggleDeleteMode}>
+              {deleteMode ? 'Cancelar' : 'Excluir várias'}
+            </button>
+          </div>
+        )}
+        {deleteMode && selTemplates.size > 0 && (
+          <div className="action-panel">
+            <span className="muted small">{selTemplates.size} rotina(s) selecionada(s)</span>
+            <button type="button" className="btn-primary" onClick={bulkDeleteTemplates}>Excluir selecionadas</button>
           </div>
         )}
         {templates.length === 0 ? (
@@ -532,7 +576,7 @@ export default function Routines() {
           <ul className="list">
             {templates.map((t) => (
               <li key={t.id}>
-                {canDelete && (
+                {deleteMode && canDelete && (
                   <input
                     type="checkbox"
                     checked={selTemplates.has(t.id)}
@@ -550,10 +594,12 @@ export default function Routines() {
                     </div>
                   )}
                 </div>
-                <div className="actions">
-                  <button className="btn-ghost" onClick={() => generateNow(t.id)}>Gerar agora</button>
-                  {canDelete && <button className="btn-ghost danger" onClick={() => removeTemplate(t.id)}>Excluir</button>}
-                </div>
+                {!deleteMode && (
+                  <div className="actions">
+                    <button className="btn-ghost" onClick={() => generateNow(t.id)}>Gerar agora</button>
+                    {canDelete && <button className="btn-ghost danger" onClick={() => removeTemplate(t.id)}>Excluir</button>}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -567,8 +613,40 @@ export default function Routines() {
           <span className="actions">
             <button type="button" className="btn-ghost" onClick={() => navigate('/calendar')}>📅 Calendário</button>
             <button type="button" className="btn-ghost" onClick={exportCsv}>Exportar CSV</button>
+            {canReassign && (
+              <button type="button" className={`btn-ghost ${reassignMode ? 'active' : ''}`} onClick={toggleReassignMode}>
+                {reassignMode ? 'Cancelar' : 'Reatribuir'}
+              </button>
+            )}
           </span>
         </div>
+        {notice && <div className="alert-ok">{notice}</div>}
+        {reassignMode && (
+          <div className="action-panel">
+            <p className="muted small">
+              Selecione tarefas <strong>em aberto</strong> e escolha o novo responsável. Concluídas e rejeitadas não podem ser reatribuídas.
+            </p>
+            <select value={reassignUser} onChange={(e) => setReassignUser(e.target.value)}>
+              <option value="">Transferir para…</option>
+              {users.filter((u) => u.role !== 'MASTER').map((u) => {
+                const bName = u.branchId != null ? branches.find((b) => b.id === u.branchId)?.name : null;
+                return (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} · {roleLabel(u.role)}{bName ? ` · ${bName}` : ''}
+                  </option>
+                );
+              })}
+            </select>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!reassignUser || selRuns.size === 0}
+              onClick={bulkReassignRuns}
+            >
+              Reatribuir {selRuns.size > 0 ? `(${selRuns.size})` : ''}
+            </button>
+          </div>
+        )}
         <div className="filter-row">
           {RUN_FILTERS.map((f) => (
             <button
@@ -587,35 +665,33 @@ export default function Routines() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por título..."
         />
-        {canReassign && selRuns.size > 0 && (
-          <div className="row-between">
-            <select value={reassignUser} onChange={(e) => setReassignUser(e.target.value)}>
-              <option value="">Reatribuir {selRuns.size} para...</option>
-              {usersForBranch.filter((u) => u.role !== 'MASTER').map((u) => (
-                <option key={u.id} value={u.id}>{u.fullName}</option>
-              ))}
-            </select>
-            <button type="button" className="btn-ghost" disabled={!reassignUser} onClick={bulkReassignRuns}>Reatribuir</button>
-          </div>
-        )}
         {visibleRuns.length === 0 ? (
           <p className="muted">Nenhuma tarefa neste filtro.</p>
         ) : (
           <ul className="list">
             {visibleRuns.map((run) => {
               const template = templates.find((t) => t.id === run.templateId);
+              const eligible = REASSIGNABLE.has(run.status);
               return (
-                <li key={run.id}>
-                  {canReassign && (
+                <li key={run.id} className={reassignMode && !eligible ? 'row-muted' : ''}>
+                  {reassignMode && (eligible ? (
                     <input
                       type="checkbox"
                       checked={selRuns.has(run.id)}
                       onChange={() => toggleSet(selRuns, setSelRuns, run.id)}
                     />
-                  )}
-                  <div className="clickable item-main" onClick={() => navigate(`/routines/${run.id}`)}>
+                  ) : (
+                    <span className="cb-spacer" aria-hidden="true" />
+                  ))}
+                  <div
+                    className={!reassignMode || eligible ? 'clickable item-main' : 'item-main'}
+                    onClick={() => onRunRow(run)}
+                  >
                     <strong>{template?.title ?? `Tarefa #${run.id}`}</strong>
                     <div className="muted small">Vence: {run.dueAt ? new Date(run.dueAt).toLocaleString() : '—'}</div>
+                    {reassignMode && !eligible && (
+                      <div className="muted small">Não pode ser reatribuída ({STATUS_LABEL[run.status] ?? run.status})</div>
+                    )}
                   </div>
                   <span className={`chip status-${run.status.toLowerCase()}`}>{STATUS_LABEL[run.status] ?? run.status}</span>
                 </li>
