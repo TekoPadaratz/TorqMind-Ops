@@ -37,7 +37,7 @@ Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `tran
 - `NotificationService.notifyCounterpart`
 - `CredentialService` — hash, época JWT e auditoria de senha (`CREATED|SELF_CHANGE|ADMIN_RESET`)
 - `VoiceDraftService` / `VoiceCommandExecutor` / `AuthorizedEntityResolver` — voz: consulta/exclusão por nome, defaults por empresa
-- `CompanySettingsService` — config por empresa (foto/comentário/lembrete), só MASTER
+- `CompanySettingsService` — config por empresa (foto/comentário/lembrete/**checklists**), só MASTER
 
 ## Tabelas
 

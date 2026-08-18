@@ -175,6 +175,7 @@ public class VoiceCommandExecutor {
                 intent.getReminderBeforeMinutes(),
                 Boolean.TRUE.equals(intent.getRequiresPhoto()),
                 Boolean.TRUE.equals(intent.getRequiresComment()),
+                List.of(),
                 me.userId()
         );
         Map<String, Object> out = new LinkedHashMap<>();

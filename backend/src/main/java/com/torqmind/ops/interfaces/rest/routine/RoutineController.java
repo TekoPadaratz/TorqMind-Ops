@@ -122,6 +122,7 @@ public class RoutineController {
                 request.reminderBeforeMinutes(),
                 Boolean.TRUE.equals(request.requiresPhoto()),
                 Boolean.TRUE.equals(request.requiresComment()),
+                mapChecklist(request.checklistItems()),
                 me.userId()
         );
     }
@@ -164,6 +165,34 @@ public class RoutineController {
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=rotinas.csv")
                 .body(csv);
+    }
+
+    private static List<RoutineService.ChecklistItemInput> mapChecklist(List<ChecklistItemRequest> items) {
+        if (items == null) {
+            return List.of();
+        }
+        return items.stream()
+                .filter(i -> i != null && i.label() != null && !i.label().isBlank())
+                .map(i -> new RoutineService.ChecklistItemInput(i.label(), i.required()))
+                .toList();
+    }
+
+    @GetMapping("/runs/{id}/checklist")
+    public List<com.torqmind.ops.domain.routine.RoutineRunChecklistItem> runChecklist(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return routineService.getRunChecklist(id, me);
+    }
+
+    @PostMapping("/runs/{id}/checklist/{itemId}")
+    public com.torqmind.ops.domain.routine.RoutineRunChecklistItem toggleChecklist(
+            @PathVariable Long id,
+            @PathVariable Long itemId,
+            @RequestBody ChecklistCheckRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return routineService.toggleChecklistItem(id, itemId, Boolean.TRUE.equals(request.checked()), me);
     }
 
     @PostMapping("/runs/{id}/comments")
@@ -257,8 +286,15 @@ public class RoutineController {
             LocalDate startDate,
             Integer reminderBeforeMinutes,
             Boolean requiresPhoto,
-            Boolean requiresComment
+            Boolean requiresComment,
+            List<ChecklistItemRequest> checklistItems
     ) {
+    }
+
+    public record ChecklistItemRequest(String label, Boolean required) {
+    }
+
+    public record ChecklistCheckRequest(Boolean checked) {
     }
 
     public record GenerateRunRequest(

@@ -138,7 +138,7 @@ public class OccurrenceController {
                 request.startTime(), request.dueTime(), request.weekday(), request.dayOfMonth(),
                 request.customDays(), Boolean.TRUE.equals(request.businessDaysOnly()), request.startDate(),
                 request.reminderBeforeMinutes(), Boolean.TRUE.equals(request.requiresPhoto()),
-                Boolean.TRUE.equals(request.requiresComment()), me.userId());
+                Boolean.TRUE.equals(request.requiresComment()), java.util.List.of(), me.userId());
     }
 
     public record ToRoutineRequest(

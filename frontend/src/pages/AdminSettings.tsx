@@ -8,6 +8,7 @@ type Settings = {
   requirePhotoOnComplete: boolean;
   requireCommentOnComplete: boolean;
   defaultReminderMinutes: number;
+  checklistsEnabled: boolean;
 };
 
 type Props = {
@@ -37,7 +38,8 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
       const next = await apiPut(`/admin/companies/${selectedCompany}/settings`, {
         requirePhotoOnComplete: settings.requirePhotoOnComplete,
         requireCommentOnComplete: settings.requireCommentOnComplete,
-        defaultReminderMinutes: settings.defaultReminderMinutes
+        defaultReminderMinutes: settings.defaultReminderMinutes,
+        checklistsEnabled: settings.checklistsEnabled
       });
       setSettings(next);
       onOk('Configurações salvas.');
@@ -79,6 +81,14 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
               onChange={(e) => setSettings({ ...settings, requireCommentOnComplete: e.target.checked })}
             />
             Exigir comentário para concluir
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.checklistsEnabled}
+              onChange={(e) => setSettings({ ...settings, checklistsEnabled: e.target.checked })}
+            />
+            Habilitar checklists nas tarefas
           </label>
           <label className="field-label">Lembrete padrão (minutos antes)
             <input

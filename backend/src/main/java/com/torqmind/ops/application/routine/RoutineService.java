@@ -1,5 +1,6 @@
 package com.torqmind.ops.application.routine;
 
+import com.torqmind.ops.application.company.CompanySettingsService;
 import com.torqmind.ops.application.notification.NotificationService;
 import com.torqmind.ops.application.task.ActivityService;
 import com.torqmind.ops.application.tenant.TenantAccessService;
@@ -7,10 +8,14 @@ import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.domain.calendar.BrazilianNationalHolidays;
 import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.ops.StatusRules;
+import com.torqmind.ops.domain.routine.RoutineChecklistItem;
 import com.torqmind.ops.domain.routine.RoutineRun;
+import com.torqmind.ops.domain.routine.RoutineRunChecklistItem;
 import com.torqmind.ops.domain.routine.RoutineTemplate;
 import com.torqmind.ops.domain.task.TaskType;
 import com.torqmind.ops.domain.user.User;
+import com.torqmind.ops.infrastructure.persistence.RoutineChecklistItemRepository;
+import com.torqmind.ops.infrastructure.persistence.RoutineRunChecklistItemRepository;
 import com.torqmind.ops.infrastructure.persistence.RoutineRunRepository;
 import com.torqmind.ops.infrastructure.persistence.RoutineTemplateRepository;
 import com.torqmind.ops.infrastructure.persistence.TaskAttachmentRepository;
@@ -53,6 +58,9 @@ public class RoutineService {
     private final TaskCommentRepository commentRepository;
     private final UserRepository userRepository;
     private final TenantAccessService tenantAccessService;
+    private final RoutineChecklistItemRepository checklistItemRepository;
+    private final RoutineRunChecklistItemRepository runChecklistItemRepository;
+    private final CompanySettingsService companySettingsService;
 
     public RoutineService(
             RoutineTemplateRepository templateRepository,
@@ -62,7 +70,10 @@ public class RoutineService {
             TaskAttachmentRepository attachmentRepository,
             TaskCommentRepository commentRepository,
             UserRepository userRepository,
-            TenantAccessService tenantAccessService
+            TenantAccessService tenantAccessService,
+            RoutineChecklistItemRepository checklistItemRepository,
+            RoutineRunChecklistItemRepository runChecklistItemRepository,
+            CompanySettingsService companySettingsService
     ) {
         this.templateRepository = templateRepository;
         this.runRepository = runRepository;
@@ -72,6 +83,9 @@ public class RoutineService {
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
         this.tenantAccessService = tenantAccessService;
+        this.checklistItemRepository = checklistItemRepository;
+        this.runChecklistItemRepository = runChecklistItemRepository;
+        this.companySettingsService = companySettingsService;
     }
 
     public List<RoutineTemplate> listTemplates(Long companyId) {
@@ -144,6 +158,7 @@ public class RoutineService {
         run.setCreatedAt(Instant.now());
         run.setUpdatedAt(Instant.now());
         RoutineRun saved = runRepository.save(run);
+        snapshotChecklist(template, saved);
 
         activityService.record(TaskType.ROUTINE_RUN, saved.getId(), actor, "CREATED", null,
                 RoutineStatus.PENDENTE.name(), "Execução criada a partir de: " + template.getTitle());
@@ -183,6 +198,10 @@ public class RoutineService {
         if (next == RoutineStatus.CONCLUIDA && template != null && template.isRequiresPhoto()
                 && !hasValidPhoto(TaskType.ROUTINE_RUN, run.getId(), run.getAssignedUserId())) {
             throw new IllegalArgumentException("Esta rotina exige ao menos uma foto do responsável para ser concluída.");
+        }
+        if (next == RoutineStatus.CONCLUIDA
+                && runChecklistItemRepository.countByRunIdAndRequiredTrueAndCheckedFalse(run.getId()) > 0) {
+            throw new IllegalArgumentException("Conclua todos os itens obrigatórios do checklist antes de finalizar.");
         }
 
         Instant now = Instant.now();
@@ -261,6 +280,67 @@ public class RoutineService {
         return generateRunsForTemplate(template, me.userId());
     }
 
+    // ---- Checklist (parametrizavel por empresa) ----
+    public record ChecklistItemInput(String label, Boolean required) {}
+
+    private void persistChecklist(RoutineTemplate template, List<ChecklistItemInput> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        if (!companySettingsService.getOrDefault(template.getCompanyId()).isChecklistsEnabled()) {
+            return;
+        }
+        int pos = 0;
+        for (ChecklistItemInput in : items) {
+            if (in == null || in.label() == null || in.label().isBlank()) {
+                continue;
+            }
+            RoutineChecklistItem item = new RoutineChecklistItem();
+            item.setTemplateId(template.getId());
+            item.setPosition(pos++);
+            item.setLabel(in.label().trim());
+            item.setRequired(in.required() == null || in.required());
+            checklistItemRepository.save(item);
+        }
+    }
+
+    private void snapshotChecklist(RoutineTemplate template, RoutineRun run) {
+        for (RoutineChecklistItem it : checklistItemRepository.findByTemplateIdOrderByPositionAsc(template.getId())) {
+            RoutineRunChecklistItem ri = new RoutineRunChecklistItem();
+            ri.setRunId(run.getId());
+            ri.setTemplateItemId(it.getId());
+            ri.setPosition(it.getPosition());
+            ri.setLabel(it.getLabel());
+            ri.setRequired(it.isRequired());
+            ri.setChecked(false);
+            runChecklistItemRepository.save(ri);
+        }
+    }
+
+    public List<RoutineRunChecklistItem> getRunChecklist(Long runId, AppUserPrincipal me) {
+        tenantAccessService.requireRoutineRunAccess(me, runId);
+        return runChecklistItemRepository.findByRunIdOrderByPositionAsc(runId);
+    }
+
+    @Transactional
+    public RoutineRunChecklistItem toggleChecklistItem(Long runId, Long itemId, boolean checked, AppUserPrincipal me) {
+        RoutineRun run = tenantAccessService.requireRoutineRunAccess(me, runId);
+        tenantAccessService.requireRoutineExecutor(me, run);
+        if (run.getStatus() == RoutineStatus.CONCLUIDA || run.getStatus() == RoutineStatus.REJEITADA) {
+            throw new IllegalArgumentException("A tarefa ja foi finalizada.");
+        }
+        RoutineRunChecklistItem item = runChecklistItemRepository.findById(itemId)
+                .filter(i -> i.getRunId().equals(runId))
+                .orElseThrow(() -> new IllegalArgumentException("Item de checklist nao encontrado."));
+        item.setChecked(checked);
+        item.setCheckedBy(checked ? me.userId() : null);
+        item.setCheckedAt(checked ? Instant.now() : null);
+        RoutineRunChecklistItem saved = runChecklistItemRepository.save(item);
+        activityService.record(TaskType.ROUTINE_RUN, runId, me.userId(), "CHECKLIST", null, null,
+                (checked ? "Marcou: " : "Desmarcou: ") + item.getLabel());
+        return saved;
+    }
+
     // ---- Criacao direta de tarefa (recorrente ou unica), com alvo e janela de horario ----
     @Transactional
     public RoutineTemplate createRecurringTask(
@@ -283,6 +363,7 @@ public class RoutineService {
             Integer reminderBeforeMinutes,
             boolean requiresPhoto,
             boolean requiresComment,
+            List<ChecklistItemInput> checklistItems,
             UUID actor
     ) {
         String rec = normalizeRecurrence(recurrence);
@@ -353,6 +434,7 @@ public class RoutineService {
         template.setCreatedBy(actor);
         template.setCreatedAt(Instant.now());
         RoutineTemplate saved = templateRepository.save(template);
+        persistChecklist(saved, checklistItems);
 
         // Se hoje for dia de execucao e o horario de inicio ja chegou, gera imediatamente.
         if (isRunDay(today, saved) && !LocalTime.now(ZONE).isBefore(startTime)) {
@@ -486,6 +568,7 @@ public class RoutineService {
             run.setCreatedAt(now);
             run.setUpdatedAt(now);
             RoutineRun saved = runRepository.save(run);
+            snapshotChecklist(template, saved);
             activityService.record(TaskType.ROUTINE_RUN, saved.getId(), actor, "CREATED", null,
                     RoutineStatus.PENDENTE.name(), "Tarefa gerada: " + template.getTitle());
             notificationService.notifyCounterpart(actor, userId, "ROUTINE_RUN", saved.getId(),

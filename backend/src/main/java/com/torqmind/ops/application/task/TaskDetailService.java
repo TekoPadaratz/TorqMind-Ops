@@ -57,6 +57,7 @@ public class TaskDetailService {
     private final NotificationService notificationService;
     private final ActivityService activityService;
     private final TenantAccessService tenantAccessService;
+    private final com.torqmind.ops.infrastructure.persistence.RoutineRunChecklistItemRepository runChecklistItemRepository;
 
     public TaskDetailService(
             RoutineRunRepository runRepository,
@@ -72,7 +73,8 @@ public class TaskDetailService {
             DriveFolderService driveFolderService,
             NotificationService notificationService,
             ActivityService activityService,
-            TenantAccessService tenantAccessService
+            TenantAccessService tenantAccessService,
+            com.torqmind.ops.infrastructure.persistence.RoutineRunChecklistItemRepository runChecklistItemRepository
     ) {
         this.runRepository = runRepository;
         this.templateRepository = templateRepository;
@@ -88,6 +90,7 @@ public class TaskDetailService {
         this.notificationService = notificationService;
         this.activityService = activityService;
         this.tenantAccessService = tenantAccessService;
+        this.runChecklistItemRepository = runChecklistItemRepository;
     }
 
     // ---------------- Comentários ----------------
@@ -218,7 +221,12 @@ public class TaskDetailService {
         RoutineSummary summary = (RoutineSummary) detail.summary();
         String branchName = summary.branchId() == null ? null
                 : branchRepository.findById(summary.branchId()).map(Branch::getName).orElse(null);
-        return RoutineRunPdfRenderer.render(summary, detail.comments(), detail.attachments(), detail.activities(), branchName);
+        List<RoutineRunPdfRenderer.ChecklistLine> checklist = runChecklistItemRepository
+                .findByRunIdOrderByPositionAsc(runId).stream()
+                .map(i -> new RoutineRunPdfRenderer.ChecklistLine(i.getLabel(), i.isRequired(), i.isChecked()))
+                .toList();
+        return RoutineRunPdfRenderer.render(summary, detail.comments(), detail.attachments(),
+                detail.activities(), branchName, checklist);
     }
 
     public TaskDetail getOccurrenceDetail(Long occId, AppUserPrincipal me) {

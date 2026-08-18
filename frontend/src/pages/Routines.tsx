@@ -100,6 +100,9 @@ export default function Routines() {
   const [requiresComment, setRequiresComment] = useState(false);
   const [runStatus, setRunStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [checklistsEnabled, setChecklistsEnabled] = useState(false);
+  const [checklistItems, setChecklistItems] = useState<Array<{ label: string; required: boolean }>>([]);
+  const [checklistDraft, setChecklistDraft] = useState('');
 
   const usersForBranch = users.filter((user) => branchId === '' || user.branchId === branchId);
   const sectorsForBranch = sectors.filter(
@@ -108,6 +111,25 @@ export default function Routines() {
 
   function toggleCustomDay(day: number) {
     setCustomDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b)));
+  }
+
+  useEffect(() => {
+    apiGet('/company/settings')
+      .then((s) => setChecklistsEnabled(!!s.checklistsEnabled))
+      .catch(() => undefined);
+  }, []);
+
+  function addChecklistItem() {
+    const label = checklistDraft.trim();
+    if (!label) return;
+    setChecklistItems([...checklistItems, { label, required: true }]);
+    setChecklistDraft('');
+  }
+  function removeChecklistItem(idx: number) {
+    setChecklistItems(checklistItems.filter((_, i) => i !== idx));
+  }
+  function toggleItemRequired(idx: number) {
+    setChecklistItems(checklistItems.map((it, i) => (i === idx ? { ...it, required: !it.required } : it)));
   }
 
   async function loadRuns(status: string) {
@@ -173,7 +195,8 @@ export default function Routines() {
         startDate: recurrence === 'ONCE' ? (startDate || null) : null,
         reminderBeforeMinutes: reminderMinutes,
         requiresPhoto,
-        requiresComment
+        requiresComment,
+        checklistItems: checklistsEnabled ? checklistItems : []
       });
       setTitle('');
       setDescription('');
@@ -181,6 +204,7 @@ export default function Routines() {
       setBusinessDaysOnly(false);
       setRequiresPhoto(false);
       setRequiresComment(false);
+      setChecklistItems([]);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao criar tarefa');
@@ -416,6 +440,41 @@ export default function Routines() {
             <input type="checkbox" checked={requiresComment} onChange={(e) => setRequiresComment(e.target.checked)} />
             Exige comentário na conclusão
           </label>
+          {checklistsEnabled && (
+            <div className="stack">
+              <label className="field-label">Checklist (itens a marcar na execução)</label>
+              <div className="row-between">
+                <input
+                  value={checklistDraft}
+                  onChange={(e) => setChecklistDraft(e.target.value)}
+                  placeholder="Ex: Conferir lacres"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addChecklistItem();
+                    }
+                  }}
+                />
+                <button type="button" className="btn-ghost" onClick={addChecklistItem}>Adicionar</button>
+              </div>
+              {checklistItems.length > 0 && (
+                <ul className="list">
+                  {checklistItems.map((it, idx) => (
+                    <li key={idx}>
+                      <span>{it.label}</span>
+                      <span className="actions">
+                        <label className="check">
+                          <input type="checkbox" checked={it.required} onChange={() => toggleItemRequired(idx)} />
+                          obrigatório
+                        </label>
+                        <button type="button" className="btn-ghost danger" onClick={() => removeChecklistItem(idx)}>×</button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           <button type="submit" className="btn-primary">Criar tarefa</button>
         </form>
         </details>

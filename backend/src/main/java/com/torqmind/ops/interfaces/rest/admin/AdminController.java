@@ -164,13 +164,15 @@ public class AdminController {
                 id,
                 Boolean.TRUE.equals(request.requirePhotoOnComplete()),
                 Boolean.TRUE.equals(request.requireCommentOnComplete()),
-                request.defaultReminderMinutes()));
+                request.defaultReminderMinutes(),
+                request.checklistsEnabled() == null || request.checklistsEnabled()));
     }
 
     public record CompanySettingsRequest(
             Boolean requirePhotoOnComplete,
             Boolean requireCommentOnComplete,
-            Integer defaultReminderMinutes
+            Integer defaultReminderMinutes,
+            Boolean checklistsEnabled
     ) {
     }
 
@@ -178,14 +180,16 @@ public class AdminController {
             Long companyId,
             boolean requirePhotoOnComplete,
             boolean requireCommentOnComplete,
-            int defaultReminderMinutes
+            int defaultReminderMinutes,
+            boolean checklistsEnabled
     ) {
         static CompanySettingsResponse from(CompanySettings s) {
             return new CompanySettingsResponse(
                     s.getCompanyId(),
                     s.isRequirePhotoOnComplete(),
                     s.isRequireCommentOnComplete(),
-                    s.getDefaultReminderMinutes());
+                    s.getDefaultReminderMinutes(),
+                    s.isChecklistsEnabled());
         }
     }
 

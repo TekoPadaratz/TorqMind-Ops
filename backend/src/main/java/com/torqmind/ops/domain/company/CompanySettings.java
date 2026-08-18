@@ -24,6 +24,9 @@ public class CompanySettings {
     @Column(name = "default_reminder_minutes", nullable = false)
     private Integer defaultReminderMinutes = 15;
 
+    @Column(name = "checklists_enabled", nullable = false)
+    private boolean checklistsEnabled = true;
+
     @Column(name = "updated_at")
     private Instant updatedAt;
 
@@ -57,6 +60,14 @@ public class CompanySettings {
 
     public void setDefaultReminderMinutes(int defaultReminderMinutes) {
         this.defaultReminderMinutes = defaultReminderMinutes;
+    }
+
+    public boolean isChecklistsEnabled() {
+        return checklistsEnabled;
+    }
+
+    public void setChecklistsEnabled(boolean checklistsEnabled) {
+        this.checklistsEnabled = checklistsEnabled;
     }
 
     public Instant getUpdatedAt() {

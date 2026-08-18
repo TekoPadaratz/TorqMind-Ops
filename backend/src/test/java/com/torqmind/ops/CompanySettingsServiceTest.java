@@ -31,7 +31,7 @@ class CompanySettingsServiceTest {
         Mockito.when(repo.save(Mockito.any(CompanySettings.class))).thenAnswer(inv -> inv.getArgument(0));
         CompanySettingsService service = new CompanySettingsService(repo);
 
-        CompanySettings s = service.update(1L, false, true, 9999);
+        CompanySettings s = service.update(1L, false, true, 9999, true);
 
         Assertions.assertFalse(s.isRequirePhotoOnComplete());
         Assertions.assertTrue(s.isRequireCommentOnComplete());

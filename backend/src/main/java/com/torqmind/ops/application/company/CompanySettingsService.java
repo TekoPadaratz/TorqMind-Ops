@@ -28,7 +28,8 @@ public class CompanySettingsService {
     }
 
     @Transactional
-    public CompanySettings update(Long companyId, boolean requirePhoto, boolean requireComment, Integer reminderMinutes) {
+    public CompanySettings update(Long companyId, boolean requirePhoto, boolean requireComment,
+                                 Integer reminderMinutes, boolean checklistsEnabled) {
         CompanySettings settings = repository.findById(companyId).orElseGet(() -> {
             CompanySettings fresh = new CompanySettings();
             fresh.setCompanyId(companyId);
@@ -38,6 +39,7 @@ public class CompanySettingsService {
         settings.setRequireCommentOnComplete(requireComment);
         int minutes = reminderMinutes == null ? 15 : Math.max(0, Math.min(MAX_REMINDER_MINUTES, reminderMinutes));
         settings.setDefaultReminderMinutes(minutes);
+        settings.setChecklistsEnabled(checklistsEnabled);
         settings.setUpdatedAt(Instant.now());
         return repository.save(settings);
     }

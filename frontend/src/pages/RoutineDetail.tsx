@@ -36,10 +36,12 @@ export default function RoutineDetail() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checklist, setChecklist] = useState<Array<{ id: number; label: string; required: boolean; checked: boolean }>>([]);
 
   async function reload() {
     try {
       setDetail(await apiGet(`/routines/runs/${id}`));
+      apiGet(`/routines/runs/${id}/checklist`).then(setChecklist).catch(() => setChecklist([]));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar');
     }
@@ -47,6 +49,16 @@ export default function RoutineDetail() {
   useEffect(() => {
     reload();
   }, [id]);
+
+  async function toggleCheck(itemId: number, checked: boolean) {
+    setError(null);
+    try {
+      await apiPost(`/routines/runs/${id}/checklist/${itemId}`, { checked });
+      setChecklist(await apiGet(`/routines/runs/${id}/checklist`));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao atualizar o checklist');
+    }
+  }
 
   async function transition(status: string) {
     setError(null);
@@ -164,6 +176,35 @@ export default function RoutineDetail() {
           </div>
         )}
       </section>
+
+      {checklist.length > 0 && (
+        <section className="card">
+          <h2>Checklist</h2>
+          {checklist.filter((c) => c.required && !c.checked).length > 0 ? (
+            <p className="muted small">
+              {checklist.filter((c) => c.required && !c.checked).length} item(ns) obrigatório(s) pendente(s) para concluir.
+            </p>
+          ) : (
+            <p className="muted small">Todos os itens obrigatórios concluídos.</p>
+          )}
+          <ul className="list">
+            {checklist.map((c) => (
+              <li key={c.id}>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={c.checked}
+                    disabled={busy || !isAssignedExecutor || s.status === 'CONCLUIDA' || s.status === 'REJEITADA'}
+                    onChange={(e) => toggleCheck(c.id, e.target.checked)}
+                  />
+                  {c.label}
+                  {!c.required && <span className="muted small"> (opcional)</span>}
+                </label>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Thread
         comments={detail.comments}

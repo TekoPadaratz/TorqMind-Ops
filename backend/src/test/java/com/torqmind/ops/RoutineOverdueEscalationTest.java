@@ -35,7 +35,10 @@ class RoutineOverdueEscalationTest {
         RoutineService service = new RoutineService(
                 templateRepo, runRepo, notifications, activity,
                 Mockito.mock(TaskAttachmentRepository.class), Mockito.mock(TaskCommentRepository.class),
-                userRepo, Mockito.mock(TenantAccessService.class));
+                userRepo, Mockito.mock(TenantAccessService.class),
+                Mockito.mock(com.torqmind.ops.infrastructure.persistence.RoutineChecklistItemRepository.class),
+                Mockito.mock(com.torqmind.ops.infrastructure.persistence.RoutineRunChecklistItemRepository.class),
+                Mockito.mock(com.torqmind.ops.application.company.CompanySettingsService.class));
 
         UUID assignee = UUID.randomUUID();
         UUID manager = UUID.randomUUID();

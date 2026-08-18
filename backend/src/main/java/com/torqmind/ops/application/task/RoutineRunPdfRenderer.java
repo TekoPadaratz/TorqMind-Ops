@@ -30,8 +30,11 @@ public final class RoutineRunPdfRenderer {
 
     private RoutineRunPdfRenderer() {}
 
+    public record ChecklistLine(String label, boolean required, boolean checked) {}
+
     public static byte[] render(RoutineSummary s, List<CommentView> comments,
-                                List<AttachmentView> attachments, List<ActivityView> activities, String branchName) {
+                                List<AttachmentView> attachments, List<ActivityView> activities, String branchName,
+                                List<ChecklistLine> checklist) {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             Document doc = new Document(PageSize.A4, 40, 40, 44, 40);
@@ -82,6 +85,17 @@ public final class RoutineRunPdfRenderer {
                     cell(t, geo(a.latitude(), a.longitude()), normal);
                 }
                 doc.add(t);
+            }
+
+            doc.add(sectionTitle("Checklist", head));
+            if (checklist == null || checklist.isEmpty()) {
+                doc.add(new Paragraph("Sem checklist.", small));
+            } else {
+                for (ChecklistLine c : checklist) {
+                    String mark = c.checked() ? "[X] " : "[ ] ";
+                    String opt = c.required() ? "" : " (opcional)";
+                    doc.add(new Paragraph(mark + nvl(c.label(), "-") + opt, normal));
+                }
             }
 
             doc.add(sectionTitle("Comentarios", head));

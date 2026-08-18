@@ -37,7 +37,7 @@ class VoiceCommandExecutorTest {
                 Mockito.eq("ONCE"), Mockito.eq("USER"), Mockito.any(), Mockito.any(), Mockito.any(),
                 Mockito.any(LocalTime.class), Mockito.any(LocalTime.class), Mockito.any(), Mockito.any(),
                 Mockito.any(), Mockito.anyBoolean(), Mockito.any(LocalDate.class), Mockito.any(),
-                Mockito.eq(true), Mockito.eq(true), Mockito.any()
+                Mockito.eq(true), Mockito.eq(true), Mockito.any(), Mockito.any()
         )).thenReturn(saved);
 
         VoiceCommandExecutor executor = new VoiceCommandExecutor(
@@ -71,7 +71,7 @@ class VoiceCommandExecutorTest {
                 Mockito.eq("ONCE"), Mockito.eq("USER"), Mockito.any(), Mockito.any(), Mockito.any(),
                 Mockito.any(LocalTime.class), Mockito.any(LocalTime.class), Mockito.any(), Mockito.any(),
                 Mockito.any(), Mockito.anyBoolean(), Mockito.any(LocalDate.class), Mockito.any(),
-                Mockito.eq(true), Mockito.eq(true), Mockito.any()
+                Mockito.eq(true), Mockito.eq(true), Mockito.any(), Mockito.any()
         );
     }
 

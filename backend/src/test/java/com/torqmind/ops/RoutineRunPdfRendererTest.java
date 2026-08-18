@@ -20,7 +20,8 @@ class RoutineRunPdfRendererTest {
         TaskDetailService.AttachmentView att = new TaskDetailService.AttachmentView(
                 9L, "foto.jpg", "image/jpeg", 1234, "/api/attachments/9",
                 new TaskDetailService.UserRef("u", "Alfredo"), Instant.now(), -23.55052, -46.63331);
-        byte[] pdf = RoutineRunPdfRenderer.render(s, List.of(), List.of(att), List.of(), "Filial Centro");
+        byte[] pdf = RoutineRunPdfRenderer.render(s, List.of(), List.of(att), List.of(), "Filial Centro",
+                List.of(new RoutineRunPdfRenderer.ChecklistLine("Conferir lacres", true, true)));
 
         Assertions.assertTrue(pdf.length > 200);
         // assinatura de PDF: %PDF
