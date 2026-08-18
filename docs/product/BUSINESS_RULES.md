@@ -41,6 +41,8 @@ Acesso por ID de outra empresa/filial → 403. MASTER vê tudo.
 - **Comprovante PDF**: `GET /api/routines/runs/{id}/report` gera um PDF de rastreabilidade da execução (status, responsável, horários, evidências/anexos com **carimbo data/hora** e **local (lat/lng)**, comentários e histórico). Respeita o tenant (mesmo controle de acesso do detalhe).
 - **Geo na foto**: no upload de imagem, o app captura a geolocalização (best-effort; se negada/indisponível, envia sem geo) e grava `latitude/longitude` no anexo. Exibido como link de mapa na evidência e na coluna **Local** do comprovante PDF.
 - **Offline (foto)**: sem conexão, a foto de evidência é salva localmente (IndexedDB) e reenviada automaticamente ao reconectar; o servidor **deduplica por checksum** (reenvio não duplica). Voz e demais ações continuam exigindo conexão (STT/interpretação no servidor).
+- **Calendário**: `GET /api/routines/runs/calendar?from=&to=` devolve as execuções do período (título, status, vencimento, responsável), respeitando tenant/filial. A UI mostra uma agenda mensal navegável agrupada por dia; cada item abre o detalhe da tarefa.
+- **Operações em lote (UI, não por voz)**: excluir várias rotinas programadas — `POST /api/routines/templates/bulk-delete` (MASTER/OWNER; soft-delete item a item, ignora as sem permissão, retorna `deleted`/`failed`) — e reatribuir várias tarefas em aberto — `POST /api/routines/runs/bulk-reassign` (MASTER/OWNER/MANAGER; valida o usuário destino e pula runs de outra empresa/filial, com filial incompatível ou já concluídas/rejeitadas). Cada item é sua própria transação (uma falha não desfaz as demais). A **voz** continua recusando exclusão em massa.
 
 ## Ocorrências
 

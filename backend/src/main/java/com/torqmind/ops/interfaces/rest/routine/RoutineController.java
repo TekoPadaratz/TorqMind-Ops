@@ -195,6 +195,38 @@ public class RoutineController {
         return routineService.toggleChecklistItem(id, itemId, Boolean.TRUE.equals(request.checked()), me);
     }
 
+    @GetMapping("/runs/calendar")
+    public List<RoutineService.CalendarRun> calendar(
+            @AuthenticationPrincipal AppUserPrincipal me,
+            @RequestParam(required = false) Long companyId,
+            @RequestParam String from,
+            @RequestParam String to
+    ) {
+        Long cid = tenantResolver.resolveListCompanyId(me, companyId);
+        Long branchId = tenantResolver.branchFilterOrNull(me);
+        java.time.ZoneId zone = java.time.ZoneId.of("America/Sao_Paulo");
+        java.time.Instant fromI = LocalDate.parse(from).atStartOfDay(zone).toInstant();
+        java.time.Instant toI = LocalDate.parse(to).plusDays(1).atStartOfDay(zone).toInstant();
+        return routineService.calendarRuns(cid, branchId, fromI, toI);
+    }
+
+    @PostMapping("/templates/bulk-delete")
+    public Map<String, Object> bulkDeleteTemplates(
+            @RequestBody BulkIdsRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        return routineService.bulkDeleteTemplates(request.ids(), me);
+    }
+
+    @PostMapping("/runs/bulk-reassign")
+    public Map<String, Object> bulkReassign(
+            @RequestBody BulkReassignRequest request,
+            @AuthenticationPrincipal AppUserPrincipal me
+    ) {
+        int n = routineService.bulkReassignRuns(request.ids(), parseUuid(request.assignedUserId()), me);
+        return Map.of("reassigned", n);
+    }
+
     @PostMapping("/runs/{id}/comments")
     public TaskDetailService.CommentView addComment(
             @PathVariable Long id,
@@ -295,6 +327,12 @@ public class RoutineController {
     }
 
     public record ChecklistCheckRequest(Boolean checked) {
+    }
+
+    public record BulkIdsRequest(List<Long> ids) {
+    }
+
+    public record BulkReassignRequest(List<Long> ids, String assignedUserId) {
     }
 
     public record GenerateRunRequest(

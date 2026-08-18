@@ -14,4 +14,6 @@ public interface RoutineRunRepository extends JpaRepository<RoutineRun, Long> {
     long countByCompanyIdAndStatus(Long companyId, RoutineStatus status);
     long countByCompanyIdAndBranchIdAndStatus(Long companyId, Long branchId, RoutineStatus status);
     List<RoutineRun> findByStatusIn(java.util.List<RoutineStatus> statuses);
+    List<RoutineRun> findByCompanyIdAndScheduledForBetweenOrderByScheduledForAsc(Long companyId, java.time.Instant from, java.time.Instant to);
+    List<RoutineRun> findByCompanyIdAndBranchIdAndScheduledForBetweenOrderByScheduledForAsc(Long companyId, Long branchId, java.time.Instant from, java.time.Instant to);
 }

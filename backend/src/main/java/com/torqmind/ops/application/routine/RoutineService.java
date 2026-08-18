@@ -274,6 +274,92 @@ public class RoutineService {
         return instant == null ? "" : dt.format(instant);
     }
 
+    // ---- Calendario ----
+    public List<CalendarRun> calendarRuns(Long companyId, Long branchId, Instant from, Instant to) {
+        List<RoutineRun> runs = branchId != null
+                ? runRepository.findByCompanyIdAndBranchIdAndScheduledForBetweenOrderByScheduledForAsc(companyId, branchId, from, to)
+                : runRepository.findByCompanyIdAndScheduledForBetweenOrderByScheduledForAsc(companyId, from, to);
+        Map<Long, String> titles = new HashMap<>();
+        Map<UUID, String> names = new HashMap<>();
+        List<CalendarRun> out = new ArrayList<>();
+        for (RoutineRun r : runs) {
+            String title = titles.computeIfAbsent(r.getTemplateId(),
+                    id -> templateRepository.findById(id).map(RoutineTemplate::getTitle).orElse("Rotina"));
+            String who = r.getAssignedUserId() == null ? null
+                    : names.computeIfAbsent(r.getAssignedUserId(),
+                            id -> userRepository.findById(id).map(User::getFullName).orElse(null));
+            out.add(new CalendarRun(r.getId(), title, r.getStatus().name(), r.getScheduledFor(), r.getDueAt(), who));
+        }
+        return out;
+    }
+
+    public record CalendarRun(Long id, String title, String status, Instant scheduledFor, Instant dueAt, String assignee) {
+    }
+
+    // ---- Operacoes em lote ----
+    public Map<String, Object> bulkDeleteTemplates(List<Long> ids, AppUserPrincipal me) {
+        int deleted = 0;
+        List<Long> failed = new ArrayList<>();
+        if (ids != null) {
+            for (Long id : ids) {
+                RoutineTemplate t = templateRepository.findById(id).orElse(null);
+                if (t == null || !t.isActive()
+                        || !TenantResolver.canDeleteTemplate(me.role(), me.userId(), me.companyId(),
+                                t.getCompanyId(), t.getCreatedBy())) {
+                    failed.add(id);
+                    continue;
+                }
+                t.setActive(false);
+                templateRepository.save(t);
+                deleted++;
+            }
+        }
+        return Map.of("deleted", deleted, "failed", failed);
+    }
+
+    public int bulkReassignRuns(List<Long> ids, UUID assignedUserId, AppUserPrincipal me) {
+        String role = me.role() == null ? "" : me.role().toUpperCase();
+        boolean isMaster = role.equals("MASTER");
+        if (!isMaster && !role.equals("OWNER") && !role.equals("MANAGER")) {
+            throw new ForbiddenException("Sem permissao para reatribuir tarefas.");
+        }
+        if (ids == null || assignedUserId == null) {
+            return 0;
+        }
+        User target = userRepository.findById(assignedUserId).filter(User::isActive)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario destino invalido."));
+        Instant now = Instant.now();
+        int n = 0;
+        for (Long id : ids) {
+            RoutineRun run = runRepository.findById(id).orElse(null);
+            if (run == null) {
+                continue;
+            }
+            if (!isMaster && me.companyId() != null && !me.companyId().equals(run.getCompanyId())) {
+                continue;
+            }
+            if (run.getStatus() == RoutineStatus.CONCLUIDA || run.getStatus() == RoutineStatus.REJEITADA) {
+                continue;
+            }
+            if (target.getCompanyId() != null && !target.getCompanyId().equals(run.getCompanyId())) {
+                continue;
+            }
+            if (target.getBranchId() != null && run.getBranchId() != null
+                    && !target.getBranchId().equals(run.getBranchId())) {
+                continue;
+            }
+            run.setAssignedUserId(assignedUserId);
+            run.setUpdatedAt(now);
+            runRepository.save(run);
+            activityService.record(TaskType.ROUTINE_RUN, id, me.userId(), "REASSIGNED", null, null,
+                    "Responsavel alterado");
+            notificationService.notifyCounterpart(me.userId(), assignedUserId, "ROUTINE_RUN", id,
+                    "Tarefa atribuida a voce", "Voce recebeu uma tarefa.");
+            n++;
+        }
+        return n;
+    }
+
     @Transactional
     public int generateNow(Long templateId, AppUserPrincipal me) {
         RoutineTemplate template = tenantAccessService.requireTemplateAccess(me, templateId);

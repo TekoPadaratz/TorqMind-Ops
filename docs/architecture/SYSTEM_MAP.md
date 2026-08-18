@@ -4,7 +4,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 
 ## Módulos
 
-- Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`); ao vencer sem conclusão vira `ATRASADA` e **escalona** (avisa responsável + gerentes da filial + donos); **comprovante PDF** por run (`GET /api/routines/runs/{id}/report`: dados, evidências com carimbo data/hora, comentários e histórico)
+- Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`); ao vencer sem conclusão vira `ATRASADA` e **escalona** (avisa responsável + gerentes da filial + donos); **comprovante PDF** por run (`GET /api/routines/runs/{id}/report`: dados, evidências com carimbo data/hora, comentários e histórico); **calendário** (agenda mensal por dia via `GET /api/routines/runs/calendar?from=&to=`); **operações em lote** (excluir rotinas programadas + reatribuir tarefas)
 - Ocorrências: (`ABERTA|EM_ATENDIMENTO|AGUARDANDO_VALIDACAO|ENCERRADA|REJEITADA`); tipo opcional `GENERIC | FUEL_QUALITY_RECEIPT` (análise de qualidade no recebimento; 1 recebimento = 1 ocorrência; rascunho `ABERTA`, finalização `ENCERRADA` + PDF no `StorageProvider`)
 - Catálogo: empresas, filiais, setores, usuários (sem MASTER na lista operacional)
 - Notificações: por destinatário; `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes)
@@ -52,7 +52,7 @@ Troca de senha: `POST /api/auth/password` (própria senha; senha atual errada = 
 
 2FA (TOTP, opt-in por usuário): `TotpService` (HMAC-SHA1/Base32, RFC 6238, sem dependência). Segredo **cifrado em repouso** (AES-GCM, `TotpSecretConverter`, chave `TOTP_ENC_KEY` ou derivada do `JWT_SECRET`). Ativação self-service em `/api/auth/2fa` (`GET` status, `POST /setup` gera segredo+otpauth, `POST /enable` confirma código, `POST /disable` exige código). Login em 2 passos: se `totp_enabled`, `POST /api/auth/login` devolve `{totpRequired,challenge}` (JWT `stage=2fa`, 5 min, **rejeitado** como bearer) e `POST /api/auth/login/2fa` troca desafio+código pelo token. Lockout de conta + **rate-limit por IP** (login e login/2fa). Recuperação: MASTER remove via `POST /api/admin/users/{id}/2fa/disable`.
 
-Headers de segurança (SecurityConfig): `frameOptions sameOrigin`, HSTS, Referrer-Policy. Dashboard gerencial: `GET /api/dashboard/metrics` (conclusão no prazo %, aging de atrasos, ranking por filial). Export: `GET /api/routines/runs/export.csv`. Frontend é **PWA instalável** (manifest + ícone; sem SW de cache).
+Headers de segurança (SecurityConfig): `frameOptions sameOrigin`, HSTS, Referrer-Policy. Dashboard gerencial: `GET /api/dashboard/metrics` (conclusão no prazo %, aging de atrasos, ranking por filial). Export: `GET /api/routines/runs/export.csv`. Calendário: `GET /api/routines/runs/calendar?from=&to=` (agenda mensal agrupada por dia). Lote: `POST /api/routines/templates/bulk-delete` (excluir rotinas, MASTER/OWNER — soft-delete por item, ignora sem permissão) e `POST /api/routines/runs/bulk-reassign` (reatribuir tarefas em aberto, MASTER/OWNER/MANAGER — valida usuário destino, pula runs de outra empresa/filial ou já concluídas). Frontend é **PWA instalável** (manifest + ícone; sem SW de cache).
 
 ## Fluxo criar → concluir
 

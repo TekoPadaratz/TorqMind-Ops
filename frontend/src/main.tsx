@@ -9,6 +9,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Routines from './pages/Routines';
 import RoutineDetail from './pages/RoutineDetail';
+import Calendar from './pages/Calendar';
 import Occurrences from './pages/Occurrences';
 import OccurrenceDetail from './pages/OccurrenceDetail';
 import Admin from './pages/Admin';
@@ -144,6 +145,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/routines" element={<Routines />} />
             <Route path="/routines/:id" element={<RoutineDetail />} />
+            <Route path="/calendar" element={<Calendar />} />
             <Route path="/occurrences" element={<Occurrences />} />
             <Route path="/occurrences/new/fuel-quality" element={<FuelQualityOccurrencePage />} />
             <Route path="/occurrences/:id" element={<OccurrenceDetail />} />

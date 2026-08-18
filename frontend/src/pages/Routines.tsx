@@ -73,6 +73,7 @@ export default function Routines() {
   const canDelete = session?.role === 'MASTER' || session?.role === 'OWNER';
   const isManager = session?.role === 'MANAGER' || session?.role === 'OPERATOR';
   const canPickBranch = session?.role === 'MASTER' || session?.role === 'OWNER';
+  const canReassign = session?.role === 'MASTER' || session?.role === 'OWNER' || session?.role === 'MANAGER';
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
@@ -103,6 +104,9 @@ export default function Routines() {
   const [checklistsEnabled, setChecklistsEnabled] = useState(false);
   const [checklistItems, setChecklistItems] = useState<Array<{ label: string; required: boolean }>>([]);
   const [checklistDraft, setChecklistDraft] = useState('');
+  const [selTemplates, setSelTemplates] = useState<Set<number>>(new Set());
+  const [selRuns, setSelRuns] = useState<Set<number>>(new Set());
+  const [reassignUser, setReassignUser] = useState('');
 
   const usersForBranch = users.filter((user) => branchId === '' || user.branchId === branchId);
   const sectorsForBranch = sectors.filter(
@@ -247,6 +251,39 @@ export default function Routines() {
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao exportar');
+    }
+  }
+
+  function toggleSet(set: Set<number>, setter: (s: Set<number>) => void, id: number) {
+    const next = new Set(set);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setter(next);
+  }
+
+  async function bulkDeleteTemplates() {
+    if (selTemplates.size === 0) return;
+    if (!window.confirm(`Excluir ${selTemplates.size} rotina(s) selecionada(s)?`)) return;
+    setError(null);
+    try {
+      await apiPost('/routines/templates/bulk-delete', { ids: Array.from(selTemplates) });
+      setSelTemplates(new Set());
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao excluir');
+    }
+  }
+
+  async function bulkReassignRuns() {
+    if (selRuns.size === 0 || !reassignUser) return;
+    setError(null);
+    try {
+      await apiPost('/routines/runs/bulk-reassign', { ids: Array.from(selRuns), assignedUserId: reassignUser });
+      setSelRuns(new Set());
+      setReassignUser('');
+      await loadRuns(runStatus);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao reatribuir');
     }
   }
 
@@ -483,12 +520,25 @@ export default function Routines() {
       <section className="card">
         <details>
           <summary className="section-summary">Rotinas programadas ({templates.length})</summary>
+        {canDelete && selTemplates.size > 0 && (
+          <div className="row-between">
+            <span className="muted small">{selTemplates.size} selecionada(s)</span>
+            <button type="button" className="btn-ghost danger" onClick={bulkDeleteTemplates}>Excluir selecionadas</button>
+          </div>
+        )}
         {templates.length === 0 ? (
           <p className="muted">Nenhuma rotina programada.</p>
         ) : (
           <ul className="list">
             {templates.map((t) => (
               <li key={t.id}>
+                {canDelete && (
+                  <input
+                    type="checkbox"
+                    checked={selTemplates.has(t.id)}
+                    onChange={() => toggleSet(selTemplates, setSelTemplates, t.id)}
+                  />
+                )}
                 <div>
                   <strong>{t.title}</strong>
                   <div className="muted small">{scheduleSummary(t)}</div>
@@ -514,7 +564,10 @@ export default function Routines() {
       <section className="card">
         <div className="row-between">
           <h2>Tarefas</h2>
-          <button type="button" className="btn-ghost" onClick={exportCsv}>Exportar CSV</button>
+          <span className="actions">
+            <button type="button" className="btn-ghost" onClick={() => navigate('/calendar')}>📅 Calendário</button>
+            <button type="button" className="btn-ghost" onClick={exportCsv}>Exportar CSV</button>
+          </span>
         </div>
         <div className="filter-row">
           {RUN_FILTERS.map((f) => (
@@ -534,6 +587,17 @@ export default function Routines() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por título..."
         />
+        {canReassign && selRuns.size > 0 && (
+          <div className="row-between">
+            <select value={reassignUser} onChange={(e) => setReassignUser(e.target.value)}>
+              <option value="">Reatribuir {selRuns.size} para...</option>
+              {usersForBranch.filter((u) => u.role !== 'MASTER').map((u) => (
+                <option key={u.id} value={u.id}>{u.fullName}</option>
+              ))}
+            </select>
+            <button type="button" className="btn-ghost" disabled={!reassignUser} onClick={bulkReassignRuns}>Reatribuir</button>
+          </div>
+        )}
         {visibleRuns.length === 0 ? (
           <p className="muted">Nenhuma tarefa neste filtro.</p>
         ) : (
@@ -541,8 +605,15 @@ export default function Routines() {
             {visibleRuns.map((run) => {
               const template = templates.find((t) => t.id === run.templateId);
               return (
-                <li key={run.id} className="clickable" onClick={() => navigate(`/routines/${run.id}`)}>
-                  <div>
+                <li key={run.id}>
+                  {canReassign && (
+                    <input
+                      type="checkbox"
+                      checked={selRuns.has(run.id)}
+                      onChange={() => toggleSet(selRuns, setSelRuns, run.id)}
+                    />
+                  )}
+                  <div className="clickable" style={{ flex: 1 }} onClick={() => navigate(`/routines/${run.id}`)}>
                     <strong>{template?.title ?? `Tarefa #${run.id}`}</strong>
                     <div className="muted small">Vence: {run.dueAt ? new Date(run.dueAt).toLocaleString() : '—'}</div>
                   </div>
