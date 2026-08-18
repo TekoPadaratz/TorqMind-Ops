@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiGet, apiPost, apiUpload, currentGeo } from '../api';
+import { apiGet, apiPost, uploadOrQueue, currentGeo } from '../api';
 import { Thread } from '../components/Thread';
 import { FuelQualityForm } from './FuelQualityOccurrence';
 import { openAttachment } from '../components/AuthMedia';
@@ -114,6 +114,7 @@ export default function OccurrenceDetail() {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function reload() {
@@ -150,11 +151,16 @@ export default function OccurrenceDetail() {
   }
   async function onUpload(file: File) {
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       const geo = file.type.startsWith('image/') ? await currentGeo() : null;
-      await apiUpload(`/occurrences/${id}/attachments`, file, geo);
-      await reload();
+      const r = await uploadOrQueue(`/occurrences/${id}/attachments`, file, geo);
+      if (r.queued) {
+        setNotice('Sem conexão: a foto foi salva e será enviada automaticamente ao reconectar.');
+      } else {
+        await reload();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha no upload');
     } finally {
@@ -173,6 +179,7 @@ export default function OccurrenceDetail() {
     <div className="page">
       <button className="btn-ghost back" onClick={() => navigate(-1)}>← Voltar</button>
       {error && <div className="alert-error">{error}</div>}
+      {notice && <div className="alert-ok">{notice}</div>}
 
       {quality ? (
         <FuelQualityForm occurrenceId={Number(id)} />

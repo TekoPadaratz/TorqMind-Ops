@@ -10,6 +10,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 - Notificações: por destinatário; `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes)
 - Voz: comando falado → execução direta (criar/consultar/listar) ou confirmação (excluir/rejeitar; recusa exclusão em massa); app responde **falando** (TTS pt-BR); mesmos serviços da UI
 - Storage: `StorageProvider` (local | Google Drive OAuth)
+- PWA offline: fila de uploads (fotos) em IndexedDB (`offline.ts`), reenvio ao reconectar (evento `online`), indicador de pendencias no header; **sem Service Worker de cache** (evita cache preso no iOS). Servidor **deduplica por checksum** (reenvio nao duplica). Voz permanece online (STT + interpretacao no servidor).
 
 ## HTTP (`/api`)
 
@@ -31,7 +32,7 @@ Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `tran
 
 - `RoutineService` — criar template/tarefa, gerar runs, transições + evidências
 - `OccurrenceService` — abrir e transicionar
-- `TaskDetailService` — comentários, anexos (assinatura real, **geo opcional lat/lng**), detalhe, comprovante PDF (`renderRoutineRunReport` + `RoutineRunPdfRenderer`)
+- `TaskDetailService` — comentários, anexos (assinatura real, **geo opcional lat/lng**, **dedup por checksum**), detalhe, comprovante PDF (`renderRoutineRunReport` + `RoutineRunPdfRenderer`)
 - `TenantResolver` + `TaskAuthorization` — empresa/filial e responsável nominal
 - `NotificationService.notifyCounterpart`
 - `CredentialService` — hash, época JWT e auditoria de senha (`CREATED|SELF_CHANGE|ADMIN_RESET`)

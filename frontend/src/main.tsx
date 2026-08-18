@@ -15,6 +15,7 @@ import Account from './pages/Account';
 import Notifications from './pages/Notifications';
 import VoiceSheet from './components/VoiceSheet';
 import FuelQualityOccurrencePage from './pages/FuelQualityOccurrence';
+import { OfflineBadge } from './components/OfflineBadge';
 import './styles.css';
 
 function Shell() {
@@ -70,6 +71,7 @@ function Shell() {
           <p className="muted small">
             {session.fullName?.toUpperCase()} · v{__BUILD_ID__}
           </p>
+          <OfflineBadge />
         </div>
         <div className="header-actions">
           <button

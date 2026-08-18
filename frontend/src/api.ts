@@ -1,3 +1,5 @@
+import { enqueueUpload } from './offline';
+
 const API_BASE = '/api';
 
 export type Session = {
@@ -103,6 +105,27 @@ export async function apiUpload(path: string, file: File, geo?: { lat: number; l
     body: form
   });
   return handle(res);
+}
+
+export async function uploadOrQueue(
+  path: string,
+  file: File,
+  geo?: { lat: number; lng: number } | null
+): Promise<{ queued: boolean; attachment?: any }> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    await enqueueUpload(path, file, geo ?? null);
+    return { queued: true };
+  }
+  try {
+    const attachment = await apiUpload(path, file, geo);
+    return { queued: false, attachment };
+  } catch (e) {
+    if (e instanceof TypeError) {
+      await enqueueUpload(path, file, geo ?? null);
+      return { queued: true };
+    }
+    throw e;
+  }
 }
 
 export function currentGeo(timeoutMs = 6000): Promise<{ lat: number; lng: number } | null> {

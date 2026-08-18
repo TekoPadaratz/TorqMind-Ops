@@ -39,6 +39,7 @@ Acesso por ID de outra empresa/filial → 403. MASTER vê tudo.
 - **Atraso e escalonamento**: ao vencer sem conclusão, o run vira `ATRASADA`, avisa o responsável e **escalona** para os gerentes da filial e os donos da empresa (uma vez).
 - **Comprovante PDF**: `GET /api/routines/runs/{id}/report` gera um PDF de rastreabilidade da execução (status, responsável, horários, evidências/anexos com **carimbo data/hora** e **local (lat/lng)**, comentários e histórico). Respeita o tenant (mesmo controle de acesso do detalhe).
 - **Geo na foto**: no upload de imagem, o app captura a geolocalização (best-effort; se negada/indisponível, envia sem geo) e grava `latitude/longitude` no anexo. Exibido como link de mapa na evidência e na coluna **Local** do comprovante PDF.
+- **Offline (foto)**: sem conexão, a foto de evidência é salva localmente (IndexedDB) e reenviada automaticamente ao reconectar; o servidor **deduplica por checksum** (reenvio não duplica). Voz e demais ações continuam exigindo conexão (STT/interpretação no servidor).
 
 ## Ocorrências
 

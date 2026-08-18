@@ -133,6 +133,12 @@ public class TaskDetailService {
         UUID actor = me.userId();
 
         String checksum = sha256(content);
+        // Idempotencia p/ reenvio offline: mesmo arquivo (bytes) no mesmo alvo nao duplica.
+        for (TaskAttachment existing : attachmentRepository.findByTaskTypeAndTaskIdOrderByCreatedAt(type.name(), taskId)) {
+            if (checksum.equals(existing.getChecksumSha256())) {
+                return toAttachmentView(existing, nameMap(Set.of(existing.getUploadedBy())));
+            }
+        }
         String ext = inspected.extension();
         String displayName = sanitizeName(fileName, ext);
         String folder = resolveStorageFolder(type, taskId);
