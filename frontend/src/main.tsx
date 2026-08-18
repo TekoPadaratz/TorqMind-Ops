@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './auth';
 import { apiGet, apiPost } from './api';
 import { roleLabel } from './roles';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Routines from './pages/Routines';
 import RoutineDetail from './pages/RoutineDetail';
@@ -138,6 +139,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset" element={<ResetPassword />} />
           <Route element={<Shell />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/routines" element={<Routines />} />

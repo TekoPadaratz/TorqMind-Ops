@@ -64,6 +64,7 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     }
 
     private boolean isRateLimited(String uri) {
-        return LOGIN_PATH.equals(uri) || (LOGIN_PATH + "/2fa").equals(uri);
+        return LOGIN_PATH.equals(uri) || (LOGIN_PATH + "/2fa").equals(uri)
+                || "/api/auth/password/forgot".equals(uri) || "/api/auth/password/reset".equals(uri);
     }
 }

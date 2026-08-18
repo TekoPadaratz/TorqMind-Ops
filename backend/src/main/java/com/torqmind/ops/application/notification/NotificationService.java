@@ -16,10 +16,13 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
-    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
+    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository,
+                               EmailService emailService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     /**
@@ -49,6 +52,14 @@ public class NotificationService {
     @Transactional
     public int markAllRead(UUID recipientUserId) {
         return notificationRepository.markAllRead(recipientUserId, Instant.now());
+    }
+
+    /** E-mail best-effort ao usuario (se tiver e-mail), para eventos importantes (atraso/escalonamento). */
+    public void emailUser(UUID userId, String subject, String body) {
+        if (userId == null) {
+            return;
+        }
+        userRepository.findById(userId).ifPresent(u -> emailService.send(u.getEmail(), subject, body));
     }
 
     private void save(UUID actor, UUID recipient, String entityType, Long entityId, String title, String body) {

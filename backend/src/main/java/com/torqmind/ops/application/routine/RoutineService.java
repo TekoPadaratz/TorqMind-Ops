@@ -499,6 +499,8 @@ public class RoutineService {
                         previous.name(), RoutineStatus.ATRASADA.name(), "Prazo expirado sem conclusao");
                 notificationService.notifyCounterpart(owner, assignee, "ROUTINE_RUN", run.getId(),
                         "Tarefa atrasada", title + " passou do prazo.");
+                notificationService.emailUser(assignee, "Tarefa atrasada",
+                        title + " passou do prazo. Conclua no TorqMind Ops.");
                 escalateOverdue(run, assignee, title);
                 actions++;
             } else if (!run.isExpiryReminded() && run.getScheduledFor() != null) {
@@ -537,6 +539,8 @@ public class RoutineService {
         for (UUID target : targets) {
             notificationService.notifyCounterpart(assignee, target, "ROUTINE_RUN", run.getId(),
                     "Rotina atrasada (escalonamento)", title + " passou do prazo e nao foi concluida.");
+            notificationService.emailUser(target, "Rotina atrasada (escalonamento)",
+                    title + " passou do prazo e nao foi concluida.");
         }
     }
 

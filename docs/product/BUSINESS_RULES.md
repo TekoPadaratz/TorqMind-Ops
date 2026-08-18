@@ -17,7 +17,7 @@ Gerente/funcionário: create força `branchId` do usuário. Catálogo de alvos *
 
 Só MASTER cria/edita usuário, redefine senha, desbloqueia e vê o histórico. Usuário comum troca a própria senha em `/account` (senha atual + nova + confirmação). Política: mínimo 8 caracteres, letra e número. Username não muda depois do cadastro.
 
-Não desativar a própria conta. Não desativar nem rebaixar o último MASTER ativo. Reset/troca invalida sessões JWT anteriores (`password_epoch`). Histórico registra ator, ação e horário — nunca a senha. Sem “esqueci minha senha” por e-mail nesta fase.
+Não desativar a própria conta. Não desativar nem rebaixar o último MASTER ativo. Reset/troca invalida sessões JWT anteriores (`password_epoch`). Histórico registra ator, ação e horário — nunca a senha. **Recuperação por e-mail**: disponível quando o usuário tem e-mail cadastrado e o SMTP está configurado (link com token de uso único, válido 1h; nunca revela se o e-mail existe).
 
 **Verificação em duas etapas (2FA/TOTP)**: opcional e por usuário (qualquer papel pode ativar em `/account`; indicada para MASTER/OWNER). Ativação exige confirmar um código do app autenticador; desativação exige um código válido (posse do dispositivo). Login com 2FA ativo pede o código após a senha (desafio de 5 min). O desafio não autentica requisições. Erros de código contam para o bloqueio por tentativas. Recuperação de usuário travado: só MASTER remove o 2FA do usuário.
 

@@ -72,7 +72,8 @@ public class AdminService {
             String password,
             Long companyId,
             Long branchId,
-            Long sectorId
+            Long sectorId,
+            String email
     ) {
         requireMaster(actorRole);
         String normalizedUsername = username == null ? "" : username.trim().toLowerCase();
@@ -94,6 +95,7 @@ public class AdminService {
         user.setActive(true);
         user.setCreatedAt(Instant.now());
         applyAssignment(user, parseRole(role), companyId, branchId, sectorId);
+        user.setEmail(uniqueEmail(normalizeEmail(email), user.getId()));
         credentialService.assignPassword(user, actorId, password, CredentialService.ACTION_CREATED, false);
         return user;
     }
@@ -108,7 +110,8 @@ public class AdminService {
             Long companyId,
             Long branchId,
             Long sectorId,
-            Boolean active
+            Boolean active,
+            String email
     ) {
         requireMaster(actorRole);
         User user = requireUser(userId);
@@ -120,6 +123,9 @@ public class AdminService {
         ensureAccountContinuity(user, actorId, parsedRole, newActive);
         user.setFullName(fullName.trim());
         user.setActive(newActive);
+        if (email != null) {
+            user.setEmail(uniqueEmail(normalizeEmail(email), user.getId()));
+        }
         applyAssignment(user, parsedRole, companyId, branchId, sectorId);
         user.setUpdatedAt(Instant.now());
         return userRepository.save(user);
@@ -141,6 +147,29 @@ public class AdminService {
         user.setLockedUntil(null);
         user.setUpdatedAt(Instant.now());
         return userRepository.save(user);
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return null;
+        }
+        String e = email.trim().toLowerCase();
+        if (!e.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new IllegalArgumentException("E-mail invalido.");
+        }
+        return e;
+    }
+
+    private String uniqueEmail(String email, UUID selfId) {
+        if (email == null) {
+            return null;
+        }
+        userRepository.findByEmailIgnoreCase(email).ifPresent(other -> {
+            if (!other.getId().equals(selfId)) {
+                throw new IllegalArgumentException("Ja existe um usuario com esse e-mail.");
+            }
+        });
+        return email;
     }
 
     public List<User> listUsers() {

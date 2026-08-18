@@ -1,6 +1,7 @@
 package com.torqmind.ops.interfaces.rest.auth;
 
 import com.torqmind.ops.application.auth.AuthService;
+import com.torqmind.ops.application.auth.PasswordRecoveryService;
 import com.torqmind.ops.domain.user.RoleLabels;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
 import jakarta.validation.Valid;
@@ -17,9 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordRecoveryService passwordRecoveryService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, PasswordRecoveryService passwordRecoveryService) {
         this.authService = authService;
+        this.passwordRecoveryService = passwordRecoveryService;
     }
 
     @PostMapping("/login")
@@ -35,6 +38,18 @@ public class AuthController {
     public LoginResponse loginTotp(@Valid @RequestBody TotpLoginRequest request) {
         AuthService.LoginResult result = authService.verifyTotpLogin(request.challenge(), request.code());
         return toLogin(result);
+    }
+
+    @PostMapping("/password/forgot")
+    public java.util.Map<String, Object> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordRecoveryService.requestReset(request.email());
+        return java.util.Map.of("ok", true);
+    }
+
+    @PostMapping("/password/reset")
+    public java.util.Map<String, Object> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordRecoveryService.reset(request.token(), request.newPassword());
+        return java.util.Map.of("ok", true);
     }
 
     @GetMapping("/me")
@@ -109,6 +124,12 @@ public class AuthController {
     }
 
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {
+    }
+
+    public record ForgotPasswordRequest(@NotBlank String email) {
+    }
+
+    public record ResetPasswordRequest(@NotBlank String token, @NotBlank String newPassword) {
     }
 
     public record TotpLoginRequest(@NotBlank String challenge, @NotBlank String code) {

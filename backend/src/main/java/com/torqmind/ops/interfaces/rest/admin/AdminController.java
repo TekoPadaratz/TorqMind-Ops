@@ -61,7 +61,8 @@ public class AdminController {
                 request.password(),
                 request.companyId(),
                 request.branchId(),
-                request.sectorId()
+                request.sectorId(),
+                request.email()
         );
         return UserResponse.from(user);
     }
@@ -81,7 +82,8 @@ public class AdminController {
                 request.companyId(),
                 request.branchId(),
                 request.sectorId(),
-                request.active()
+                request.active(),
+                request.email()
         );
         return UserResponse.from(user);
     }
@@ -212,7 +214,8 @@ public class AdminController {
             @NotBlank String password,
             Long companyId,
             Long branchId,
-            Long sectorId
+            Long sectorId,
+            String email
     ) {
     }
 
@@ -225,7 +228,8 @@ public class AdminController {
             Long companyId,
             Long branchId,
             Long sectorId,
-            Boolean active
+            Boolean active,
+            String email
     ) {
     }
 
@@ -275,6 +279,7 @@ public class AdminController {
             String id,
             String username,
             String fullName,
+            String email,
             String role,
             String roleLabel,
             Long companyId,
@@ -292,6 +297,7 @@ public class AdminController {
                     u.getId().toString(),
                     u.getUsername(),
                     u.getFullName(),
+                    u.getEmail(),
                     u.getRole(),
                     RoleLabels.pt(u.getRole()),
                     u.getCompanyId(),

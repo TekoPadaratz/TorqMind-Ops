@@ -67,7 +67,7 @@ class UserCredentialControlTest {
         Mockito.when(userRepository.findByUsernameIgnoreCase("ana")).thenReturn(Optional.empty());
 
         User created = adminService.createUser(
-                "MASTER", masterId, "ana", "Ana Operadora", "OPERATOR", "Senha1234", 1L, 2L, null
+                "MASTER", masterId, "ana", "Ana Operadora", "OPERATOR", "Senha1234", 1L, 2L, null, null
         );
 
         Assertions.assertNotEquals("Senha1234", created.getPasswordHash());
@@ -94,7 +94,7 @@ class UserCredentialControlTest {
         Mockito.when(userRepository.countByRoleIgnoreCaseAndActiveTrue("MASTER")).thenReturn(1L);
 
         IllegalArgumentException ex = Assertions.assertThrows(IllegalArgumentException.class,
-                () -> adminService.updateUser("MASTER", masterId, masterId, "Teko", "MASTER", null, null, null, false));
+                () -> adminService.updateUser("MASTER", masterId, masterId, "Teko", "MASTER", null, null, null, false, null));
         Assertions.assertTrue(ex.getMessage().contains("própria conta"));
     }
 
@@ -106,7 +106,7 @@ class UserCredentialControlTest {
         Mockito.when(userRepository.countByRoleIgnoreCaseAndActiveTrue("MASTER")).thenReturn(1L);
 
         IllegalArgumentException ex = Assertions.assertThrows(IllegalArgumentException.class,
-                () -> adminService.updateUser("MASTER", masterId, otherMaster, "Lucas", "OWNER", 1L, null, null, true));
+                () -> adminService.updateUser("MASTER", masterId, otherMaster, "Lucas", "OWNER", 1L, null, null, true, null));
         Assertions.assertTrue(ex.getMessage().contains("último administrador"));
     }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiPost } from '../api';
 import { useAuth } from '../auth';
 import PasswordField from '../components/PasswordField';
 
@@ -12,6 +13,9 @@ export default function Login() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotDone, setForgotDone] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,6 +45,20 @@ export default function Login() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Código inválido');
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await apiPost('/auth/password/forgot', { email: forgotEmail.trim() });
+    } catch {
+      /* nao revela existencia da conta */
+    } finally {
+      setForgotDone(true);
       setLoading(false);
     }
   }
@@ -82,6 +100,34 @@ export default function Login() {
               Voltar
             </button>
           </form>
+        ) : showForgot ? (
+          <form onSubmit={onForgot}>
+            <p className="muted small">Informe seu e-mail. Se houver conta, enviaremos um link para redefinir a senha.</p>
+            <label>
+              E-mail
+              <input
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                type="email"
+                autoComplete="email"
+                placeholder="seu@email.com"
+                required
+              />
+            </label>
+            {forgotDone && <div className="alert-ok">Se o e-mail existir, enviamos as instruções.</div>}
+            {error && <div className="alert-error">{error}</div>}
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? 'Enviando...' : 'Enviar link'}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={loading}
+              onClick={() => { setShowForgot(false); setError(null); setForgotDone(false); }}
+            >
+              Voltar
+            </button>
+          </form>
         ) : (
           <form onSubmit={onSubmit}>
             <label>
@@ -108,6 +154,14 @@ export default function Login() {
             {error && <div className="alert-error">{error}</div>}
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={loading}
+              onClick={() => { setShowForgot(true); setError(null); }}
+            >
+              Esqueci minha senha
             </button>
           </form>
         )}

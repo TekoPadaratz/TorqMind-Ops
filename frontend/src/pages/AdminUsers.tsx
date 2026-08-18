@@ -10,6 +10,7 @@ export type AdminUser = {
   id: string;
   username: string;
   fullName: string;
+  email?: string | null;
   role: string;
   roleLabel?: string;
   companyId?: number | null;
@@ -112,6 +113,7 @@ function CreateUserForm({
 }) {
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [role, setRole] = useState('MANAGER');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -137,6 +139,7 @@ function CreateUserForm({
             await apiPost('/admin/users', {
               username,
               fullName,
+              email: email.trim() || null,
               role,
               password,
               companyId: needsCompany && typeof selectedCompany === 'number' ? selectedCompany : null,
@@ -145,6 +148,7 @@ function CreateUserForm({
             });
             setUsername('');
             setFullName('');
+            setEmail('');
             setPassword('');
             setConfirm('');
             onCreated();
@@ -161,6 +165,14 @@ function CreateUserForm({
           autoCapitalize="none"
           autoComplete="off"
           required
+        />
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          type="email"
+          placeholder="E-mail (avisos e recuperação de senha)"
+          autoCapitalize="none"
+          autoComplete="off"
         />
         <label className="field-label">Função</label>
         <select value={role} onChange={(e) => setRole(e.target.value)}>
@@ -237,6 +249,7 @@ function UserRow({
 }) {
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState(user.fullName);
+  const [email, setEmail] = useState(user.email ?? '');
   const [role, setRole] = useState(user.role);
   const [companyId, setCompanyId] = useState<number | ''>(user.companyId ?? '');
   const [branchId, setBranchId] = useState<number | ''>(user.branchId ?? '');
@@ -253,6 +266,7 @@ function UserRow({
 
   useEffect(() => {
     setFullName(user.fullName);
+    setEmail(user.email ?? '');
     setRole(user.role);
     setCompanyId(user.companyId ?? '');
     setBranchId(user.branchId ?? '');
@@ -311,6 +325,7 @@ function UserRow({
               try {
                 await apiPut(`/admin/users/${user.id}`, {
                   fullName,
+                  email: email.trim(),
                   role,
                   companyId: needsCompany && typeof companyId === 'number' ? companyId : null,
                   branchId: (needsBranch || role === 'OWNER') && branchId !== '' ? branchId : null,
@@ -326,6 +341,9 @@ function UserRow({
           >
             <label className="field-label">Login (não altera)
               <input value={user.username} readOnly />
+            </label>
+            <label className="field-label">E-mail
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="e-mail para avisos/recuperação" autoCapitalize="none" />
             </label>
             <label className="field-label">Nome completo
               <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />

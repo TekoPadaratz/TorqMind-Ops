@@ -58,7 +58,9 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/auth/login", "/api/auth/login/2fa", "/health", "/actuator/**").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/login/2fa",
+                        "/api/auth/password/forgot", "/api/auth/password/reset",
+                        "/health", "/actuator/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
