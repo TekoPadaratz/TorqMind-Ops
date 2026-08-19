@@ -7,7 +7,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 - Rotinas: template → runs (`PENDENTE|EM_ANDAMENTO|CONCLUIDA|ATRASADA|REJEITADA`); ao vencer sem conclusão vira `ATRASADA` e **escalona** (avisa responsável + gerentes da filial + donos); **comprovante PDF** por run (`GET /api/routines/runs/{id}/report`: dados, evidências com carimbo data/hora, comentários e histórico); **calendário** (agenda mensal por dia via `GET /api/routines/runs/calendar?from=&to=`); **operações em lote** (excluir rotinas programadas + reatribuir tarefas)
 - Ocorrências: (`ABERTA|EM_ATENDIMENTO|AGUARDANDO_VALIDACAO|ENCERRADA|REJEITADA`); tipo opcional `GENERIC | FUEL_QUALITY_RECEIPT` (análise de qualidade no recebimento; 1 recebimento = 1 ocorrência; rascunho `ABERTA`, finalização `ENCERRADA` + PDF no `StorageProvider`)
 - Catálogo: empresas, filiais, setores, usuários (sem MASTER na lista operacional)
-- Notificações: por destinatário (sino no app); `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes). **Push (Web Push/VAPID)**: opt-in por dispositivo, best-effort, disparado junto com cada notificação in-app.
+- Notificações: por destinatário (sino no app); `notifyCounterpart` nunca notifica o actor; MASTER recebe cópia (testes). **Push (Web Push/VAPID)**: opt-in por dispositivo, best-effort, disparado junto com cada notificação in-app. **Tempo real (SSE)**: `GET /api/events/stream` (fetch-streaming com Bearer, `RealtimeService`/`EventsController`) atualiza o sino e a lista de avisos **ao vivo** com o app aberto; heartbeat 25s; nginx com `proxy_buffering off`; fallback = polling 30s.
 - Voz: comando falado → execução direta (criar/consultar/listar) ou confirmação (excluir/rejeitar; recusa exclusão em massa); app responde **falando** (TTS pt-BR); mesmos serviços da UI
 - Storage: `StorageProvider` (local | Google Drive OAuth)
 - PWA offline: fila de uploads (fotos) em IndexedDB (`offline.ts`), reenvio ao reconectar (evento `online`), indicador de pendencias no header; **sem Service Worker de cache** (evita cache preso no iOS). Servidor **deduplica por checksum** (reenvio nao duplica). Voz permanece online (STT + interpretacao no servidor).
@@ -24,6 +24,7 @@ Fonte canônica compacta. Detalhes de voz: `docs/contracts/VOICE_COMMANDS.md`.
 | Anexos | `interfaces/rest/attachment/AttachmentController` |
 | Dashboard | `interfaces/rest/dashboard/DashboardController` |
 | Avisos | `interfaces/rest/notification/NotificationController` |
+| Eventos (SSE) | `interfaces/rest/realtime/EventsController` |
 | Voz | `interfaces/rest/voice/VoiceController` |
 
 Upload multipart: campo `file`. Voz: `POST /api/voice/drafts` (áudio e/ou `transcript`).

@@ -20,7 +20,7 @@ export default function Notifications() {
 
   useEffect(() => {
     let active = true;
-    (async () => {
+    const load = async () => {
       try {
         const list = await apiGet('/notifications');
         if (!active) return;
@@ -30,9 +30,13 @@ export default function Notifications() {
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : 'Erro ao carregar');
       }
-    })();
+    };
+    load();
+    const onRealtime = () => load();
+    window.addEventListener('torqmind:realtime-notification', onRealtime);
     return () => {
       active = false;
+      window.removeEventListener('torqmind:realtime-notification', onRealtime);
     };
   }, [location.key]);
 

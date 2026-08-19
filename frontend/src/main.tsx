@@ -18,6 +18,7 @@ import Notifications from './pages/Notifications';
 import VoiceSheet from './components/VoiceSheet';
 import FuelQualityOccurrencePage from './pages/FuelQualityOccurrence';
 import { OfflineBadge } from './components/OfflineBadge';
+import { connectRealtime } from './realtime';
 import './styles.css';
 
 function Shell() {
@@ -40,9 +41,16 @@ function Shell() {
     const timer = setInterval(load, 30000);
     const onRead = () => setUnread(0);
     window.addEventListener('torqmind:notifications-read', onRead);
+    const disconnect = connectRealtime((event) => {
+      if (event === 'notification') {
+        load();
+        window.dispatchEvent(new Event('torqmind:realtime-notification'));
+      }
+    });
     return () => {
       active = false;
       clearInterval(timer);
+      disconnect();
       window.removeEventListener('torqmind:notifications-read', onRead);
     };
   }, [session]);

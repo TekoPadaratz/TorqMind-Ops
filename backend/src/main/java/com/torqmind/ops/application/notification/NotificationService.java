@@ -1,6 +1,7 @@
 package com.torqmind.ops.application.notification;
 
 import com.torqmind.ops.application.ops.NotificationPolicy;
+import com.torqmind.ops.application.realtime.RealtimeService;
 import com.torqmind.ops.domain.notification.Notification;
 import com.torqmind.ops.domain.user.User;
 import com.torqmind.ops.infrastructure.persistence.NotificationRepository;
@@ -18,13 +19,16 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final WebPushService webPushService;
+    private final RealtimeService realtimeService;
 
     public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository,
-                               EmailService emailService, WebPushService webPushService) {
+                               EmailService emailService, WebPushService webPushService,
+                               RealtimeService realtimeService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.webPushService = webPushService;
+        this.realtimeService = realtimeService;
     }
 
     /**
@@ -75,6 +79,8 @@ public class NotificationService {
         notification.setCreatedAt(Instant.now());
         notificationRepository.save(notification);
         webPushService.sendToUser(recipient, title, body, deepLink(entityType, entityId));
+        realtimeService.publish(recipient, "notification",
+                java.util.Map.of("type", entityType == null ? "" : entityType, "title", title == null ? "" : title));
     }
 
     private static String deepLink(String entityType, Long entityId) {
