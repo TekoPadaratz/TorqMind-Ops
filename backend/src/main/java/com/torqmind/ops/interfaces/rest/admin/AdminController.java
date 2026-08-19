@@ -1,6 +1,7 @@
 package com.torqmind.ops.interfaces.rest.admin;
 
 import com.torqmind.ops.application.admin.AdminService;
+import com.torqmind.ops.application.apikey.ApiKeyService;
 import com.torqmind.ops.application.auth.AuthService;
 import com.torqmind.ops.application.company.CompanySettingsService;
 import com.torqmind.ops.application.notification.EmailService;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,14 +42,36 @@ public class AdminController {
     private final AuthService authService;
     private final EmailSettingsService emailSettingsService;
     private final EmailService emailService;
+    private final ApiKeyService apiKeyService;
 
     public AdminController(AdminService adminService, CompanySettingsService companySettingsService,
-                          AuthService authService, EmailSettingsService emailSettingsService, EmailService emailService) {
+                          AuthService authService, EmailSettingsService emailSettingsService, EmailService emailService,
+                          ApiKeyService apiKeyService) {
         this.adminService = adminService;
         this.companySettingsService = companySettingsService;
         this.authService = authService;
         this.emailSettingsService = emailSettingsService;
         this.emailService = emailService;
+        this.apiKeyService = apiKeyService;
+    }
+
+    @GetMapping("/api-keys")
+    public List<ApiKeyService.ApiKeyView> listApiKeys(@RequestParam Long companyId) {
+        return apiKeyService.list(companyId);
+    }
+
+    @PostMapping("/api-keys")
+    public ApiKeyService.CreatedKey createApiKey(@Valid @RequestBody ApiKeyRequest request,
+                                                 @AuthenticationPrincipal AppUserPrincipal me) {
+        return apiKeyService.create(request.companyId(), request.name(), me.userId());
+    }
+
+    @DeleteMapping("/api-keys/{id}")
+    public java.util.Map<String, Object> revokeApiKey(@PathVariable Long id) {
+        return java.util.Map.of("revoked", apiKeyService.revoke(id, null));
+    }
+
+    public record ApiKeyRequest(@jakarta.validation.constraints.NotNull Long companyId, String name) {
     }
 
     @GetMapping("/users")

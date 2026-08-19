@@ -65,6 +65,10 @@ Tipo `FUEL_QUALITY_RECEIPT`: rascunho permanece `ABERTA`; o checkbox “Finaliza
 
 **Tempo real (SSE)**: com o app **aberto**, o sino e a lista de avisos atualizam ao vivo por `GET /api/events/stream` (conexão autenticada por Bearer via fetch-streaming; sem token na URL). O servidor mantém as conexões em memória por usuário (máx. 5/dispositivos, heartbeat de 25s) e publica um evento a cada notificação criada. Se o stream cair, o app reconecta com backoff e o polling de 30s cobre o intervalo — nunca depende só do SSE.
 
+## API pública
+
+**Somente leitura, por empresa.** O MASTER gera chaves de API por empresa (Gestão → API pública). A chave completa (`tqm_...`) é mostrada **uma única vez** na criação e guardada apenas como **hash SHA-256** (nunca em texto puro); pode ser revogada a qualquer momento. Integrações (BI/ERP) chamam `GET /api/public/v1/...` com o header `X-API-Key: tqm_...`. O `ApiKeyAuthFilter` valida o hash, aplica **rate-limit** (120 req/min por chave) e **escopa toda leitura à empresa da chave** (sem acesso a outras empresas). Endpoints atuais: `routines/runs?from=&to=`, `occurrences?status=`, `dashboard/summary`. Não há escrita pela API. **Webhooks de saída** (eventos empurrados para o cliente) ainda **não** existem — dependem de uma validação de egress anti-SSRF (bloquear IPs privados/loopback/metadados) que será feita com cuidado.
+
 ## Auditoria
 
 `task_activities` registra ator, de/para, mensagem. Voz grava origem `VOICE` no rascunho e mensagem de atividade. Sem áudio/segredos em log.

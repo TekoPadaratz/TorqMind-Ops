@@ -1,6 +1,7 @@
 package com.torqmind.ops.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.torqmind.ops.infrastructure.security.ApiKeyAuthFilter;
 import com.torqmind.ops.infrastructure.security.JwtAuthFilter;
 import com.torqmind.ops.infrastructure.security.LoginRateLimitFilter;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,16 +33,19 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final LoginRateLimitFilter loginRateLimitFilter;
+    private final ApiKeyAuthFilter apiKeyAuthFilter;
     private final String allowedOrigins;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SecurityConfig(
             JwtAuthFilter jwtAuthFilter,
             LoginRateLimitFilter loginRateLimitFilter,
+            ApiKeyAuthFilter apiKeyAuthFilter,
             @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}") String allowedOrigins
     ) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.loginRateLimitFilter = loginRateLimitFilter;
+        this.apiKeyAuthFilter = apiKeyAuthFilter;
         this.allowedOrigins = allowedOrigins;
     }
 
@@ -70,7 +74,8 @@ public class SecurityConfig {
                         writeError(response, HttpServletResponse.SC_FORBIDDEN, "forbidden", "Acesso não permitido."))
             )
             .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(apiKeyAuthFilter, JwtAuthFilter.class);
 
         return http.build();
     }
