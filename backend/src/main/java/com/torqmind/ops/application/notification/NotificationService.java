@@ -2,6 +2,7 @@ package com.torqmind.ops.application.notification;
 
 import com.torqmind.ops.application.ops.NotificationPolicy;
 import com.torqmind.ops.application.realtime.RealtimeService;
+import com.torqmind.ops.application.webhook.WebhookService;
 import com.torqmind.ops.domain.notification.Notification;
 import com.torqmind.ops.domain.user.User;
 import com.torqmind.ops.infrastructure.persistence.NotificationRepository;
@@ -20,15 +21,17 @@ public class NotificationService {
     private final EmailService emailService;
     private final WebPushService webPushService;
     private final RealtimeService realtimeService;
+    private final WebhookService webhookService;
 
     public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository,
                                EmailService emailService, WebPushService webPushService,
-                               RealtimeService realtimeService) {
+                               RealtimeService realtimeService, WebhookService webhookService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.webPushService = webPushService;
         this.realtimeService = realtimeService;
+        this.webhookService = webhookService;
     }
 
     /**
@@ -37,6 +40,10 @@ public class NotificationService {
      */
     @Transactional
     public void notifyCounterpart(UUID actor, UUID recipient, String entityType, Long entityId, String title, String body) {
+        if (recipient != null) {
+            userRepository.findById(recipient).map(User::getCompanyId).ifPresent(companyId ->
+                    webhookService.dispatch(companyId, webhookEvent(entityType), webhookData(entityType, entityId, title, body)));
+        }
         if (NotificationPolicy.shouldNotify(actor, recipient)) {
             save(actor, recipient, entityType, entityId, title, body);
         }
@@ -92,5 +99,24 @@ public class NotificationService {
             case "OCCURRENCE" -> "/occurrences/" + entityId;
             default -> "/";
         };
+    }
+
+    private static String webhookEvent(String entityType) {
+        if ("ROUTINE_RUN".equals(entityType)) {
+            return "routine_run.updated";
+        }
+        if ("OCCURRENCE".equals(entityType)) {
+            return "occurrence.updated";
+        }
+        return "notification";
+    }
+
+    private static java.util.Map<String, Object> webhookData(String entityType, Long entityId, String title, String body) {
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("entityType", entityType);
+        map.put("entityId", entityId);
+        map.put("title", title);
+        map.put("body", body);
+        return map;
     }
 }

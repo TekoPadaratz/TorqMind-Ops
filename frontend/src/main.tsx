@@ -19,12 +19,14 @@ import VoiceSheet from './components/VoiceSheet';
 import FuelQualityOccurrencePage from './pages/FuelQualityOccurrence';
 import { OfflineBadge } from './components/OfflineBadge';
 import { connectRealtime } from './realtime';
+import { LanguageProvider, useI18n } from './i18n';
 import './styles.css';
 
 function Shell() {
   const { session, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const [unread, setUnread] = useState(0);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const isAdmin = session?.role === 'MASTER';
@@ -87,7 +89,7 @@ function Shell() {
           <button
             className={`bell ${onNotifications ? 'active' : ''}`}
             onClick={toggleNotifications}
-            aria-label={onNotifications ? 'Fechar avisos' : 'Avisos'}
+            aria-label={onNotifications ? t('header.closeNotifications') : t('header.notifications')}
             aria-pressed={onNotifications}
           >
             <span>🔔</span>
@@ -97,7 +99,7 @@ function Shell() {
             className={`btn-ghost ${location.pathname === '/account' ? 'active' : ''}`}
             onClick={() => navigate('/account')}
           >
-            Senha
+            {t('header.password')}
           </button>
           <button
             className="btn-ghost"
@@ -106,7 +108,7 @@ function Shell() {
               navigate('/login');
             }}
           >
-            Sair
+            {t('header.logout')}
           </button>
         </div>
       </header>
@@ -116,10 +118,10 @@ function Shell() {
       </main>
 
       <nav className="bottom-nav" style={{ gridTemplateColumns: `repeat(${navCount}, 1fr)` }}>
-        <NavLink to="/" end>Radar</NavLink>
-        <NavLink to="/routines">Rotinas</NavLink>
-        <NavLink to="/occurrences">Ocorrências</NavLink>
-        {isAdmin && <NavLink to="/admin">Gestão</NavLink>}
+        <NavLink to="/" end>{t('nav.radar')}</NavLink>
+        <NavLink to="/routines">{t('nav.routines')}</NavLink>
+        <NavLink to="/occurrences">{t('nav.occurrences')}</NavLink>
+        {isAdmin && <NavLink to="/admin">{t('nav.admin')}</NavLink>}
       </nav>
       {!voiceOpen && (
         <button
@@ -170,6 +172,8 @@ function App() {
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <LanguageProvider>
+      <App />
+    </LanguageProvider>
   </React.StrictMode>
 );

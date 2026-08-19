@@ -5,6 +5,7 @@ import UsersAdmin, { AdminUser } from './AdminUsers';
 import AdminSettings from './AdminSettings';
 import AdminEmailSettings from './AdminEmailSettings';
 import AdminApiKeys from './AdminApiKeys';
+import AdminWebhooks from './AdminWebhooks';
 
 type Option = {
   id: number;
@@ -133,6 +134,8 @@ export default function Admin() {
       <AdminEmailSettings onOk={flash} onError={fail} />
 
       <AdminApiKeys companies={companies} onOk={flash} onError={fail} />
+
+      <AdminWebhooks companies={companies} onOk={flash} onError={fail} />
 
       <section className="card">
         <h2>Setores</h2>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../api';
 import { openAttachment } from '../components/AuthMedia';
+import { useI18n } from '../i18n';
 
 type Summary = {
   routinesPending: number;
@@ -35,6 +36,7 @@ function todayIso(): string {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [data, setData] = useState<Summary | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,52 +53,50 @@ export default function Dashboard() {
   }, []);
 
   if (error) return <div className="alert-error">{error}</div>;
-  if (!data) return <div className="muted">Carregando...</div>;
+  if (!data) return <div className="muted">{t('dashboard.loading')}</div>;
 
   const hasAlerts = data.routinesLate > 0 || data.occurrencesOpen > 0 || data.lateRuns.length > 0;
 
   return (
     <div className="page">
       <div className={`status-banner ${hasAlerts ? 'warn' : 'ok'}`}>
-        {hasAlerts
-          ? 'Existem pontos que precisam da sua atenção.'
-          : 'Operação em dia. Nada crítico agora.'}
+        {hasAlerts ? t('dashboard.needsAttention') : t('dashboard.allGood')}
       </div>
 
       <div className="cards-grid">
-        <MetricCard label="Tarefas pendentes" value={data.routinesPending} tone="info" />
-        <MetricCard label="Em andamento" value={data.routinesInProgress} tone="info" />
-        <MetricCard label="Tarefas atrasadas" value={data.routinesLate} tone="danger" />
-        <MetricCard label="Ocorrências abertas" value={data.occurrencesOpen} tone="warn" />
-        <MetricCard label="Aguardando validação" value={data.occurrencesAwaitingValidation} tone="warn" />
+        <MetricCard label={t('dashboard.pending')} value={data.routinesPending} tone="info" />
+        <MetricCard label={t('dashboard.inProgress')} value={data.routinesInProgress} tone="info" />
+        <MetricCard label={t('dashboard.late')} value={data.routinesLate} tone="danger" />
+        <MetricCard label={t('dashboard.occOpen')} value={data.occurrencesOpen} tone="warn" />
+        <MetricCard label={t('dashboard.awaiting')} value={data.occurrencesAwaitingValidation} tone="warn" />
       </div>
 
       {metrics && (
         <section className="card">
-          <h2>Indicadores</h2>
+          <h2>{t('dashboard.indicators')}</h2>
           <div className="cards-grid">
             <MetricCard
-              label="Conclusão no prazo"
+              label={t('dashboard.onTimeRate')}
               value={`${metrics.onTimeRate}%`}
               tone={metrics.onTimeRate >= 90 ? 'ok' : metrics.onTimeRate >= 70 ? 'warn' : 'danger'}
             />
-            <MetricCard label="Concluídas (total)" value={metrics.completedCount} tone="info" />
+            <MetricCard label={t('dashboard.completedTotal')} value={metrics.completedCount} tone="info" />
           </div>
-          <h3 className="muted small">Atrasos por tempo</h3>
+          <h3 className="muted small">{t('dashboard.agingTitle')}</h3>
           <div className="chips">
-            <span className="chip">até 1d: {metrics.aging.upTo1d}</span>
+            <span className="chip">≤1d: {metrics.aging.upTo1d}</span>
             <span className="chip">1–3d: {metrics.aging.upTo3d}</span>
             <span className="chip">3–7d: {metrics.aging.upTo7d}</span>
             <span className="chip status-atrasada">+7d: {metrics.aging.over7d}</span>
           </div>
           {metrics.branchRanking.length > 0 && (
             <>
-              <h3 className="muted small">Ranking por filial (atrasos)</h3>
+              <h3 className="muted small">{t('dashboard.branchRanking')}</h3>
               <ul className="list">
                 {metrics.branchRanking.map((b) => (
                   <li key={String(b.branchId)}>
                     <span>{b.branchName}</span>
-                    <span className="chip status-atrasada">{b.lateCount} atrasadas · {b.openCount} abertas</span>
+                    <span className="chip status-atrasada">{b.lateCount} {t('dashboard.lateAbbr')} · {b.openCount} {t('dashboard.openAbbr')}</span>
                   </li>
                 ))}
               </ul>
@@ -106,9 +106,9 @@ export default function Dashboard() {
       )}
 
       <section className="card">
-        <h2>Ocorrências abertas</h2>
+        <h2>{t('dashboard.openOccurrences')}</h2>
         {data.openOccurrences.length === 0 ? (
-          <p className="muted">Nenhuma ocorrência aberta.</p>
+          <p className="muted">{t('dashboard.noOpenOcc')}</p>
         ) : (
           <ul className="list">
             {data.openOccurrences.map((o) => (
@@ -122,14 +122,14 @@ export default function Dashboard() {
       </section>
 
       <section className="card">
-        <h2>Tarefas atrasadas</h2>
+        <h2>{t('dashboard.lateTasks')}</h2>
         {data.lateRuns.length === 0 ? (
-          <p className="muted">Nenhuma tarefa atrasada.</p>
+          <p className="muted">{t('dashboard.noLateTasks')}</p>
         ) : (
           <ul className="list">
             {data.lateRuns.map((r) => (
               <li key={r.id} className="clickable" onClick={() => navigate(`/routines/${r.id}`)}>
-                <span>Tarefa #{r.id}</span>
+                <span>{t('dashboard.task')} #{r.id}</span>
                 <span className="chevron">›</span>
               </li>
             ))}
@@ -138,14 +138,14 @@ export default function Dashboard() {
       </section>
 
       <section className="card">
-        <h2>Relatório do período (PDF)</h2>
+        <h2>{t('dashboard.reportTitle')}</h2>
         <div className="time-row">
           <div className="field-block">
-            <label className="field-label">De</label>
+            <label className="field-label">{t('dashboard.from')}</label>
             <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
           </div>
           <div className="field-block">
-            <label className="field-label">Até</label>
+            <label className="field-label">{t('dashboard.to')}</label>
             <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
           </div>
         </div>
@@ -155,9 +155,9 @@ export default function Dashboard() {
           disabled={!from || !to || from > to}
           onClick={() => openAttachment(`/dashboard/report.pdf?from=${from}&to=${to}`)}
         >
-          Baixar relatório (PDF)
+          {t('dashboard.downloadReport')}
         </button>
-        <p className="muted small">Rotinas agendadas e ocorrências abertas no período, com indicadores e atrasos.</p>
+        <p className="muted small">{t('dashboard.reportHint')}</p>
       </section>
     </div>
   );

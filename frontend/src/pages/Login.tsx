@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiPost } from '../api';
 import { useAuth } from '../auth';
+import { useI18n } from '../i18n';
 import PasswordField from '../components/PasswordField';
 
 export default function Login() {
   const { login, loginTotp } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [challenge, setChallenge] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function Login() {
         navigate('/');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha no login');
+      setError(err instanceof Error ? err.message : t('login.failed'));
     } finally {
       setLoading(false);
     }
@@ -43,7 +45,7 @@ export default function Login() {
       await loginTotp(challenge as string, code.trim());
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Código inválido');
+      setError(err instanceof Error ? err.message : t('login.invalidCode'));
     } finally {
       setLoading(false);
     }
@@ -69,13 +71,13 @@ export default function Login() {
         <div className="brand">
           <div className="brand-mark">TM</div>
           <h1>TorqMind Ops</h1>
-          <p>Sua operação sob controle.</p>
+          <p>{t('brand.subtitle')}</p>
         </div>
         {challenge ? (
           <form onSubmit={onSubmitCode}>
-            <p className="muted small">Digite o código do seu app de autenticação.</p>
+            <p className="muted small">{t('login.code.hint')}</p>
             <label>
-              Código de verificação
+              {t('login.code.label')}
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -89,7 +91,7 @@ export default function Login() {
             </label>
             {error && <div className="alert-error">{error}</div>}
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Verificando...' : 'Confirmar'}
+              {loading ? t('login.verifying') : t('login.confirm')}
             </button>
             <button
               type="button"
@@ -97,14 +99,14 @@ export default function Login() {
               disabled={loading}
               onClick={() => { setChallenge(null); setCode(''); setError(null); }}
             >
-              Voltar
+              {t('login.back')}
             </button>
           </form>
         ) : showForgot ? (
           <form onSubmit={onForgot}>
-            <p className="muted small">Informe seu e-mail. Se houver conta, enviaremos um link para redefinir a senha.</p>
+            <p className="muted small">{t('login.forgot.hint')}</p>
             <label>
-              E-mail
+              {t('login.email')}
               <input
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
@@ -114,10 +116,10 @@ export default function Login() {
                 required
               />
             </label>
-            {forgotDone && <div className="alert-ok">Se o e-mail existir, enviamos as instruções.</div>}
+            {forgotDone && <div className="alert-ok">{t('login.forgot.sent')}</div>}
             {error && <div className="alert-error">{error}</div>}
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Enviando...' : 'Enviar link'}
+              {loading ? t('login.sending') : t('login.send')}
             </button>
             <button
               type="button"
@@ -125,35 +127,35 @@ export default function Login() {
               disabled={loading}
               onClick={() => { setShowForgot(false); setError(null); setForgotDone(false); }}
             >
-              Voltar
+              {t('login.back')}
             </button>
           </form>
         ) : (
           <form onSubmit={onSubmit}>
             <label>
-              Usuário
+              {t('login.user')}
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoCapitalize="none"
                 autoComplete="username"
-                placeholder="seu usuário"
+                placeholder={t('login.user.placeholder')}
                 required
               />
             </label>
             <label>
-              Senha
+              {t('login.password')}
               <PasswordField
                 value={password}
                 onChange={setPassword}
                 autoComplete="current-password"
-                placeholder="sua senha"
+                placeholder={t('login.password.placeholder')}
                 required
               />
             </label>
             {error && <div className="alert-error">{error}</div>}
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? t('login.entering') : t('login.enter')}
             </button>
             <button
               type="button"
@@ -161,11 +163,11 @@ export default function Login() {
               disabled={loading}
               onClick={() => { setShowForgot(true); setError(null); }}
             >
-              Esqueci minha senha
+              {t('login.forgot')}
             </button>
           </form>
         )}
-        <p className="muted small build-tag">versão {__BUILD_ID__}</p>
+        <p className="muted small build-tag">{t('login.version')} {__BUILD_ID__}</p>
       </div>
     </div>
   );

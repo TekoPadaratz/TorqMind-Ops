@@ -3,6 +3,7 @@ package com.torqmind.ops.interfaces.rest.admin;
 import com.torqmind.ops.application.admin.AdminService;
 import com.torqmind.ops.application.apikey.ApiKeyService;
 import com.torqmind.ops.application.auth.AuthService;
+import com.torqmind.ops.application.webhook.WebhookService;
 import com.torqmind.ops.application.company.CompanySettingsService;
 import com.torqmind.ops.application.notification.EmailService;
 import com.torqmind.ops.application.notification.EmailSettingsService;
@@ -43,16 +44,43 @@ public class AdminController {
     private final EmailSettingsService emailSettingsService;
     private final EmailService emailService;
     private final ApiKeyService apiKeyService;
+    private final WebhookService webhookService;
 
     public AdminController(AdminService adminService, CompanySettingsService companySettingsService,
                           AuthService authService, EmailSettingsService emailSettingsService, EmailService emailService,
-                          ApiKeyService apiKeyService) {
+                          ApiKeyService apiKeyService, WebhookService webhookService) {
         this.adminService = adminService;
         this.companySettingsService = companySettingsService;
         this.authService = authService;
         this.emailSettingsService = emailSettingsService;
         this.emailService = emailService;
         this.apiKeyService = apiKeyService;
+        this.webhookService = webhookService;
+    }
+
+    @GetMapping("/webhooks")
+    public List<WebhookService.WebhookView> listWebhooks(@RequestParam Long companyId) {
+        return webhookService.list(companyId);
+    }
+
+    @PostMapping("/webhooks")
+    public WebhookService.CreatedWebhook createWebhook(@Valid @RequestBody WebhookRequest request,
+                                                       @AuthenticationPrincipal AppUserPrincipal me) {
+        return webhookService.create(request.companyId(), request.url(), request.events(), me.userId());
+    }
+
+    @DeleteMapping("/webhooks/{id}")
+    public java.util.Map<String, Object> deleteWebhook(@PathVariable Long id) {
+        return java.util.Map.of("deleted", webhookService.delete(id, null));
+    }
+
+    @PostMapping("/webhooks/{id}/test")
+    public java.util.Map<String, Object> testWebhook(@PathVariable Long id) {
+        return webhookService.test(id, null);
+    }
+
+    public record WebhookRequest(@jakarta.validation.constraints.NotNull Long companyId,
+                                 @NotBlank String url, String events) {
     }
 
     @GetMapping("/api-keys")

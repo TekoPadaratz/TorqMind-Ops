@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../api';
+import { useI18n } from '../i18n';
 
 type Notification = {
   id: number;
@@ -15,6 +16,7 @@ type Notification = {
 export default function Notifications() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const [items, setItems] = useState<Notification[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,13 +55,13 @@ export default function Notifications() {
       {error && <div className="alert-error">{error}</div>}
       <section className="card">
         <div className="card-head">
-          <h2>Avisos</h2>
+          <h2>{t('notifications.title')}</h2>
           <button type="button" className="btn-ghost" onClick={() => navigate(-1)}>
-            Fechar
+            {t('notifications.close')}
           </button>
         </div>
         {items.length === 0 ? (
-          <p className="muted">Nenhum aviso por aqui.</p>
+          <p className="muted">{t('notifications.empty')}</p>
         ) : (
           <ul className="list">
             {items.map((n) => (
@@ -73,7 +75,7 @@ export default function Notifications() {
                   <div className="muted small">{n.body}</div>
                   <div className="muted small">{new Date(n.createdAt).toLocaleString()}</div>
                 </div>
-                {!n.readAt && <span className="chip status-aberta">novo</span>}
+                {!n.readAt && <span className="chip status-aberta">{t('notifications.new')}</span>}
               </li>
             ))}
           </ul>

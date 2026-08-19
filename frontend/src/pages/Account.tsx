@@ -3,6 +3,21 @@ import { apiGet, apiPost } from '../api';
 import { useAuth } from '../auth';
 import PasswordField from '../components/PasswordField';
 import { passwordConfirmError } from '../password';
+import { useI18n } from '../i18n';
+
+function LanguageCard() {
+  const { lang, setLang, t } = useI18n();
+  return (
+    <section className="card">
+      <h2>{t('account.language')}</h2>
+      <p className="muted small">{t('account.language.hint')}</p>
+      <select value={lang} onChange={(e) => setLang(e.target.value === 'en' ? 'en' : 'pt')}>
+        <option value="pt">Português (Brasil)</option>
+        <option value="en">English</option>
+      </select>
+    </section>
+  );
+}
 
 function TwoFactorCard() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -318,6 +333,7 @@ export default function Account() {
           </button>
         </form>
       </section>
+      <LanguageCard />
       <TwoFactorCard />
       <PushCard />
     </div>
