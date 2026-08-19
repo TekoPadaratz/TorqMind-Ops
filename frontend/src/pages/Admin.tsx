@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../api';
 import { formatCep, formatCnpj, formatUf } from '../masks';
+import { useI18n } from '../i18n';
 import UsersAdmin, { AdminUser } from './AdminUsers';
 import AdminSettings from './AdminSettings';
 import AdminEmailSettings from './AdminEmailSettings';
@@ -25,6 +26,7 @@ type Option = {
 type UserRow = AdminUser;
 
 export default function Admin() {
+  const { t } = useI18n();
   const [companies, setCompanies] = useState<Option[]>([]);
   const [branches, setBranches] = useState<Option[]>([]);
   const [sectors, setSectors] = useState<Option[]>([]);
@@ -64,7 +66,7 @@ export default function Admin() {
     setTimeout(() => setOk(null), 2500);
   }
   function fail(e: unknown) {
-    setError(e instanceof Error ? e.message : 'Erro');
+    setError(e instanceof Error ? e.message : t('admin.error'));
   }
 
   return (
@@ -76,11 +78,11 @@ export default function Admin() {
         companies={companies}
         onCreated={async () => {
           await loadCompanies();
-          flash('Empresa criada.');
+          flash(t('admin.companyCreated'));
         }}
         onUpdated={async () => {
           await loadCompanies();
-          flash('Empresa atualizada.');
+          flash(t('admin.companyUpdated'));
         }}
         onError={fail}
       />
@@ -90,11 +92,11 @@ export default function Admin() {
         branches={branches}
         onCreated={async (cid) => {
           if (cid === companyId) await loadScoped(cid);
-          flash('Filial criada.');
+          flash(t('admin.branchCreated'));
         }}
         onUpdated={async (cid) => {
           if (cid === companyId) await loadScoped(cid);
-          flash('Filial atualizada.');
+          flash(t('admin.branchUpdated'));
         }}
         onError={fail}
       />
@@ -106,7 +108,7 @@ export default function Admin() {
         onCompanyChange={setCompanyId}
         onCreated={async () => {
           if (typeof companyId === 'number') await loadScoped(companyId);
-          flash('Setor criado.');
+          flash(t('admin.sectorCreated'));
         }}
         onError={fail}
       />
@@ -138,9 +140,9 @@ export default function Admin() {
       <AdminWebhooks companies={companies} onOk={flash} onError={fail} />
 
       <section className="card">
-        <h2>Setores</h2>
+        <h2>{t('admin.sectors')}</h2>
         {sectors.length === 0 ? (
-          <p className="muted">Nenhum setor nesta empresa.</p>
+          <p className="muted">{t('admin.noSectors')}</p>
         ) : (
           <ul className="list">
             {sectors.map((s) => (
@@ -194,19 +196,20 @@ function LegalFields({
   function set<K extends keyof ReturnType<typeof emptyLegal>>(key: K, val: string) {
     onChange({ ...value, [key]: val });
   }
+  const { t } = useI18n();
   return (
     <>
-      <input value={value.name} onChange={(e) => set('name', e.target.value)} placeholder="Nome de exibição" required />
-      <input value={value.legalName} onChange={(e) => set('legalName', e.target.value)} placeholder="Razão social" />
-      <input value={value.cnpj} onChange={(e) => set('cnpj', formatCnpj(e.target.value))} placeholder="CNPJ" inputMode="numeric" />
+      <input value={value.name} onChange={(e) => set('name', e.target.value)} placeholder={t('admin.legal.name')} required />
+      <input value={value.legalName} onChange={(e) => set('legalName', e.target.value)} placeholder={t('admin.legal.legalName')} />
+      <input value={value.cnpj} onChange={(e) => set('cnpj', formatCnpj(e.target.value))} placeholder={t('admin.legal.cnpj')} inputMode="numeric" />
       <div className="form-grid two">
-        <input value={value.addressStreet} onChange={(e) => set('addressStreet', e.target.value)} placeholder="Logradouro" />
-        <input value={value.addressNumber} onChange={(e) => set('addressNumber', e.target.value)} placeholder="Número" />
-        <input value={value.addressComplement} onChange={(e) => set('addressComplement', e.target.value)} placeholder="Complemento" />
-        <input value={value.addressNeighborhood} onChange={(e) => set('addressNeighborhood', e.target.value)} placeholder="Bairro" />
-        <input value={value.addressCity} onChange={(e) => set('addressCity', e.target.value)} placeholder="Cidade" />
-        <input value={value.addressState} onChange={(e) => set('addressState', formatUf(e.target.value))} placeholder="UF" />
-        <input value={value.addressPostalCode} onChange={(e) => set('addressPostalCode', formatCep(e.target.value))} placeholder="CEP" inputMode="numeric" />
+        <input value={value.addressStreet} onChange={(e) => set('addressStreet', e.target.value)} placeholder={t('admin.legal.street')} />
+        <input value={value.addressNumber} onChange={(e) => set('addressNumber', e.target.value)} placeholder={t('admin.legal.number')} />
+        <input value={value.addressComplement} onChange={(e) => set('addressComplement', e.target.value)} placeholder={t('admin.legal.complement')} />
+        <input value={value.addressNeighborhood} onChange={(e) => set('addressNeighborhood', e.target.value)} placeholder={t('admin.legal.neighborhood')} />
+        <input value={value.addressCity} onChange={(e) => set('addressCity', e.target.value)} placeholder={t('admin.legal.city')} />
+        <input value={value.addressState} onChange={(e) => set('addressState', formatUf(e.target.value))} placeholder={t('admin.legal.state')} />
+        <input value={value.addressPostalCode} onChange={(e) => set('addressPostalCode', formatCep(e.target.value))} placeholder={t('admin.legal.postalCode')} inputMode="numeric" />
       </div>
     </>
   );
@@ -226,13 +229,14 @@ function CompanyForm({
   const [create, setCreate] = useState(emptyLegal());
   const [editId, setEditId] = useState<number | ''>('');
   const [edit, setEdit] = useState(emptyLegal());
+  const { t } = useI18n();
   useEffect(() => {
     const selected = companies.find((c) => c.id === editId);
     setEdit(fromOption(selected));
   }, [editId, companies]);
   return (
     <section className="card">
-      <h2>Empresa</h2>
+      <h2>{t('admin.company')}</h2>
       <form
         className="stack"
         onSubmit={async (e) => {
@@ -247,7 +251,7 @@ function CompanyForm({
         }}
       >
         <LegalFields value={create} onChange={setCreate} />
-        <button className="btn-primary" type="submit">Criar empresa</button>
+        <button className="btn-primary" type="submit">{t('admin.createCompany')}</button>
       </form>
       {companies.length > 0 && (
         <form
@@ -264,14 +268,14 @@ function CompanyForm({
             }
           }}
         >
-          <label className="field-label">Atualizar empresa
+          <label className="field-label">{t('admin.updateCompany')}
             <select value={editId} onChange={(e) => setEditId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">Selecione</option>
+              <option value="">{t('admin.select')}</option>
               {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </label>
           {typeof editId === 'number' && <LegalFields value={edit} onChange={setEdit} />}
-          {typeof editId === 'number' && <button className="btn-primary" type="submit">Salvar empresa</button>}
+          {typeof editId === 'number' && <button className="btn-primary" type="submit">{t('admin.saveCompany')}</button>}
         </form>
       )}
     </section>
@@ -295,6 +299,7 @@ function BranchForm({
   const [create, setCreate] = useState(emptyLegal());
   const [editId, setEditId] = useState<number | ''>('');
   const [edit, setEdit] = useState(emptyLegal());
+  const { t } = useI18n();
   useEffect(() => {
     if (companies.length && companyId === '') setCompanyId(companies[0].id);
   }, [companies]);
@@ -303,7 +308,7 @@ function BranchForm({
   }, [editId, branches]);
   return (
     <section className="card">
-      <h2>Filial / posto</h2>
+      <h2>{t('admin.branch')}</h2>
       <form
         className="stack"
         onSubmit={async (e) => {
@@ -318,13 +323,13 @@ function BranchForm({
           }
         }}
       >
-        <label className="field-label">Empresa
+        <label className="field-label">{t('admin.company')}
           <select value={companyId} onChange={(e) => setCompanyId(Number(e.target.value))}>
             {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
         <LegalFields value={create} onChange={setCreate} />
-        <button className="btn-primary" type="submit">Criar filial</button>
+        <button className="btn-primary" type="submit">{t('admin.createBranch')}</button>
       </form>
       {branches.length > 0 && typeof companyId === 'number' && (
         <form
@@ -341,14 +346,14 @@ function BranchForm({
             }
           }}
         >
-          <label className="field-label">Atualizar posto
+          <label className="field-label">{t('admin.updateBranch')}
             <select value={editId} onChange={(e) => setEditId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">Selecione</option>
+              <option value="">{t('admin.select')}</option>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </label>
           {typeof editId === 'number' && <LegalFields value={edit} onChange={setEdit} />}
-          {typeof editId === 'number' && <button className="btn-primary" type="submit">Salvar posto</button>}
+          {typeof editId === 'number' && <button className="btn-primary" type="submit">{t('admin.saveBranch')}</button>}
         </form>
       )}
     </section>
@@ -372,9 +377,10 @@ function SectorForm({
 }) {
   const [name, setName] = useState('');
   const [branchId, setBranchId] = useState<number | ''>('');
+  const { t } = useI18n();
   return (
     <section className="card">
-      <h2>Cadastrar setor</h2>
+      <h2>{t('admin.registerSector')}</h2>
       <form
         className="stack"
         onSubmit={async (e) => {
@@ -393,21 +399,21 @@ function SectorForm({
           }
         }}
       >
-        <label className="field-label">Empresa</label>
+        <label className="field-label">{t('admin.company')}</label>
         <select value={selectedCompany} onChange={(e) => onCompanyChange(Number(e.target.value))}>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <label className="field-label">Filial</label>
+        <label className="field-label">{t('admin.branchLabel')}</label>
         <select value={branchId} onChange={(e) => setBranchId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">(Sem filial específica)</option>
+          <option value="">{t('admin.noBranchSpecific')}</option>
           {branches.map((b) => (
             <option key={b.id} value={b.id}>{b.name}</option>
           ))}
         </select>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do setor" required />
-        <button className="btn-primary" type="submit">Criar setor</button>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('admin.sectorName')} required />
+        <button className="btn-primary" type="submit">{t('admin.createSector')}</button>
       </form>
     </section>
   );

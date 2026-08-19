@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiGet, apiPut } from '../api';
+import { useI18n } from '../i18n';
 
 type Company = { id: number; name: string };
 
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export default function AdminSettings({ companies, selectedCompany, onCompanyChange, onOk, onError }: Props) {
+  const { t } = useI18n();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -42,7 +44,7 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
         checklistsEnabled: settings.checklistsEnabled
       });
       setSettings(next);
-      onOk('Configurações salvas.');
+      onOk(t('aset.saved'));
     } catch (e) {
       onError(e);
     } finally {
@@ -52,9 +54,9 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
 
   return (
     <section className="card">
-      <h2>Configurações da operação</h2>
-      <p className="muted small">Padrões usados quando não ditos no comando de voz. Só o administrador altera.</p>
-      <label className="field-label">Empresa
+      <h2>{t('aset.title')}</h2>
+      <p className="muted small">{t('aset.desc')}</p>
+      <label className="field-label">{t('admin.company')}
         <select
           value={selectedCompany === '' ? '' : selectedCompany}
           onChange={(e) => onCompanyChange(Number(e.target.value))}
@@ -72,7 +74,7 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
               checked={settings.requirePhotoOnComplete}
               onChange={(e) => setSettings({ ...settings, requirePhotoOnComplete: e.target.checked })}
             />
-            Exigir foto para concluir
+            {t('aset.requirePhoto')}
           </label>
           <label className="check">
             <input
@@ -80,7 +82,7 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
               checked={settings.requireCommentOnComplete}
               onChange={(e) => setSettings({ ...settings, requireCommentOnComplete: e.target.checked })}
             />
-            Exigir comentário para concluir
+            {t('aset.requireComment')}
           </label>
           <label className="check">
             <input
@@ -88,9 +90,9 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
               checked={settings.checklistsEnabled}
               onChange={(e) => setSettings({ ...settings, checklistsEnabled: e.target.checked })}
             />
-            Habilitar checklists nas tarefas
+            {t('aset.enableChecklists')}
           </label>
-          <label className="field-label">Lembrete padrão (minutos antes)
+          <label className="field-label">{t('aset.defaultReminder')}
             <input
               type="number"
               min={0}
@@ -100,7 +102,7 @@ export default function AdminSettings({ companies, selectedCompany, onCompanyCha
             />
           </label>
           <button className="btn-primary" type="button" onClick={save} disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar configurações'}
+            {saving ? t('account.saving') : t('aset.save')}
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@ import { apiGet, apiPost, apiPut } from '../api';
 import PasswordField from '../components/PasswordField';
 import { passwordConfirmError } from '../password';
 import { ROLE_OPTIONS_ADMIN, roleLabel } from '../roles';
+import { useI18n } from '../i18n';
 
 export type CatalogOption = { id: number; name: string };
 
@@ -57,6 +58,7 @@ export default function UsersAdmin({
   onOk: (msg: string) => void;
   onError: (e: unknown) => void;
 }) {
+  const { t } = useI18n();
   return (
     <>
       <CreateUserForm
@@ -67,14 +69,14 @@ export default function UsersAdmin({
         onCompanyChange={onCompanyChange}
         onCreated={async () => {
           await onReload();
-          onOk('Usuário criado.');
+          onOk(t('ausers.created'));
         }}
         onError={onError}
       />
       <section className="card">
-        <h2>Usuários</h2>
+        <h2>{t('ausers.title')}</h2>
         {users.length === 0 ? (
-          <p className="muted">Nenhum usuário cadastrado.</p>
+          <p className="muted">{t('ausers.none')}</p>
         ) : (
           <ul className="list">
             {users.map((user) => (
@@ -122,10 +124,11 @@ function CreateUserForm({
 
   const needsCompany = role !== 'MASTER';
   const needsBranch = role === 'MANAGER' || role === 'OPERATOR';
+  const { t } = useI18n();
 
   return (
     <section className="card">
-      <h2>Cadastrar usuário</h2>
+      <h2>{t('ausers.register')}</h2>
       <form
         className="stack"
         onSubmit={async (e) => {
@@ -157,11 +160,11 @@ function CreateUserForm({
           }
         }}
       >
-        <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome completo" required />
+        <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('ausers.fullName')} required />
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="Usuário (a-z, 0-9, . _ -)"
+          placeholder={t('ausers.username')}
           autoCapitalize="none"
           autoComplete="off"
           required
@@ -170,31 +173,31 @@ function CreateUserForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
-          placeholder="E-mail (avisos e recuperação de senha)"
+          placeholder={t('ausers.email')}
           autoCapitalize="none"
           autoComplete="off"
         />
-        <label className="field-label">Função</label>
+        <label className="field-label">{t('ausers.role')}</label>
         <select value={role} onChange={(e) => setRole(e.target.value)}>
           {ROLE_OPTIONS_ADMIN.map((r) => (
             <option key={r.value} value={r.value}>{r.label}</option>
           ))}
         </select>
-        <label className="field-label">Senha inicial
+        <label className="field-label">{t('ausers.initialPassword')}
           <PasswordField
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
-            placeholder="mín. 8, letras e números"
+            placeholder={t('account.pwd.hint')}
             required
           />
         </label>
-        <label className="field-label">Confirmar senha
+        <label className="field-label">{t('ausers.confirmPassword')}
           <PasswordField value={confirm} onChange={setConfirm} autoComplete="new-password" required />
         </label>
         {needsCompany && (
           <>
-            <label className="field-label">Empresa</label>
+            <label className="field-label">{t('admin.company')}</label>
             <select
               value={selectedCompany}
               onChange={(e) => onCompanyChange(Number(e.target.value))}
@@ -208,27 +211,27 @@ function CreateUserForm({
         )}
         {needsBranch && (
           <>
-            <label className="field-label">Filial</label>
+            <label className="field-label">{t('admin.branchLabel')}</label>
             <select
               value={branchId}
               onChange={(e) => setBranchId(e.target.value === '' ? '' : Number(e.target.value))}
               required
             >
-              <option value="">Selecione a filial</option>
+              <option value="">{t('ausers.selectBranch')}</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
           </>
         )}
-        <label className="field-label">Setor (opcional)</label>
+        <label className="field-label">{t('ausers.sectorOptional')}</label>
         <select value={sectorId} onChange={(e) => setSectorId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">(Sem setor)</option>
+          <option value="">{t('ausers.noSector')}</option>
           {sectors.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
-        <button className="btn-primary" type="submit">Criar usuário</button>
+        <button className="btn-primary" type="submit">{t('ausers.createUser')}</button>
       </form>
     </section>
   );
@@ -263,6 +266,7 @@ function UserRow({
 
   const needsCompany = role !== 'MASTER';
   const needsBranch = role === 'MANAGER' || role === 'OPERATOR';
+  const { t } = useI18n();
 
   useEffect(() => {
     setFullName(user.fullName);
@@ -312,8 +316,8 @@ function UserRow({
         </div>
         <div className="chips">
           <span className="chip">{user.roleLabel || roleLabel(user.role)}</span>
-          {!user.active && <span className="chip">Inativo</span>}
-          {user.locked && <span className="chip">Bloqueado</span>}
+          {!user.active && <span className="chip">{t('ausers.inactive')}</span>}
+          {user.locked && <span className="chip">{t('ausers.locked')}</span>}
         </div>
       </button>
       {open && (
@@ -333,22 +337,22 @@ function UserRow({
                   active
                 });
                 await onReload();
-                onOk('Cadastro atualizado.');
+                onOk(t('ausers.updated'));
               } catch (err) {
                 onError(err);
               }
             }}
           >
-            <label className="field-label">Login (não altera)
+            <label className="field-label">{t('ausers.loginNoChange')}
               <input value={user.username} readOnly />
             </label>
-            <label className="field-label">E-mail
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="e-mail para avisos/recuperação" autoCapitalize="none" />
+            <label className="field-label">{t('ausers.emailLabel')}
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder={t('ausers.emailEditPlaceholder')} autoCapitalize="none" />
             </label>
-            <label className="field-label">Nome completo
+            <label className="field-label">{t('ausers.fullName')}
               <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             </label>
-            <label className="field-label">Função
+            <label className="field-label">{t('ausers.role')}
               <select value={role} onChange={(e) => setRole(e.target.value)}>
                 {ROLE_OPTIONS_ADMIN.map((r) => (
                   <option key={r.value} value={r.value}>{r.label}</option>
@@ -356,7 +360,7 @@ function UserRow({
               </select>
             </label>
             {needsCompany && (
-              <label className="field-label">Empresa
+              <label className="field-label">{t('admin.company')}
                 <select
                   value={companyId}
                   onChange={(e) => {
@@ -366,7 +370,7 @@ function UserRow({
                   }}
                   required
                 >
-                  <option value="">Selecione</option>
+                  <option value="">{t('admin.select')}</option>
                   {companies.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -374,13 +378,13 @@ function UserRow({
               </label>
             )}
             {needsBranch && (
-              <label className="field-label">Filial
+              <label className="field-label">{t('admin.branchLabel')}
                 <select
                   value={branchId}
                   onChange={(e) => setBranchId(e.target.value === '' ? '' : Number(e.target.value))}
                   required
                 >
-                  <option value="">Selecione a filial</option>
+                  <option value="">{t('ausers.selectBranch')}</option>
                   {scopedBranches.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
@@ -388,12 +392,12 @@ function UserRow({
               </label>
             )}
             {role === 'OWNER' && (
-              <label className="field-label">Filial (opcional)
+              <label className="field-label">{t('ausers.branchOptional')}
                 <select
                   value={branchId}
                   onChange={(e) => setBranchId(e.target.value === '' ? '' : Number(e.target.value))}
                 >
-                  <option value="">(Toda a empresa)</option>
+                  <option value="">{t('ausers.wholeCompany')}</option>
                   {scopedBranches.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
@@ -401,9 +405,9 @@ function UserRow({
               </label>
             )}
             {needsCompany && (
-              <label className="field-label">Setor (opcional)
+              <label className="field-label">{t('ausers.sectorOptional')}
                 <select value={sectorId} onChange={(e) => setSectorId(e.target.value === '' ? '' : Number(e.target.value))}>
-                  <option value="">(Sem setor)</option>
+                  <option value="">{t('ausers.noSector')}</option>
                   {scopedSectors.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
@@ -412,10 +416,10 @@ function UserRow({
             )}
             <label className="check">
               <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-              Conta ativa
+              {t('ausers.accountActive')}
             </label>
-            <p className="muted small">Última troca de senha: {formatWhen(user.passwordChangedAt)}</p>
-            <button className="btn-primary" type="submit">Salvar cadastro</button>
+            <p className="muted small">{t('ausers.lastPwdChange')} {formatWhen(user.passwordChangedAt)}</p>
+            <button className="btn-primary" type="submit">{t('ausers.saveUser')}</button>
           </form>
 
           {user.locked && (
@@ -426,13 +430,13 @@ function UserRow({
                 try {
                   await apiPost(`/admin/users/${user.id}/unlock`, {});
                   await onReload();
-                  onOk('Conta desbloqueada.');
+                  onOk(t('ausers.unlocked'));
                 } catch (err) {
                   onError(err);
                 }
               }}
             >
-              Desbloquear login
+              {t('ausers.unlock')}
             </button>
           )}
 
@@ -451,26 +455,26 @@ function UserRow({
                 setConfirm('');
                 await onReload();
                 if (events) await loadEvents();
-                onOk('Senha redefinida. As sessões anteriores deste usuário são encerradas.');
+                onOk(t('ausers.pwdReset'));
               } catch (err) {
                 onError(err);
               }
             }}
           >
-            <h3 className="section-subtitle">Redefinir senha</h3>
-            <label className="field-label">Nova senha
+            <h3 className="section-subtitle">{t('ausers.resetPwd')}</h3>
+            <label className="field-label">{t('account.pwd.new')}
               <PasswordField
                 value={newPassword}
                 onChange={setNewPassword}
                 autoComplete="new-password"
-                placeholder="mín. 8, letras e números"
+                placeholder={t('account.pwd.hint')}
                 required
               />
             </label>
-            <label className="field-label">Confirmar nova senha
+            <label className="field-label">{t('account.pwd.confirm')}
               <PasswordField value={confirm} onChange={setConfirm} autoComplete="new-password" required />
             </label>
-            <button className="btn-ghost" type="submit">Aplicar nova senha</button>
+            <button className="btn-ghost" type="submit">{t('ausers.applyPwd')}</button>
           </form>
 
           <div>
@@ -485,11 +489,11 @@ function UserRow({
                 }
               }}
             >
-              {events ? 'Atualizar histórico' : 'Ver histórico de senhas'}
+              {events ? t('ausers.refreshHistory') : t('ausers.viewHistory')}
             </button>
             {events && (
               events.length === 0 ? (
-                <p className="muted small">Nenhuma troca registrada.</p>
+                <p className="muted small">{t('ausers.noChanges')}</p>
               ) : (
                 <ul className="password-history">
                   {events.map((event) => (

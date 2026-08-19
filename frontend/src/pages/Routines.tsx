@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiBlob, apiDelete, apiGet, apiPost } from '../api';
 import { useAuth } from '../auth';
 import { roleLabel } from '../roles';
+import { useI18n } from '../i18n';
 
 type Template = {
   id: number;
@@ -36,43 +37,21 @@ type Option = { id: number; name: string };
 type SectorOpt = Option & { branchId: number | null };
 type UserOpt = { id: string; username: string; fullName: string; role: string; branchId: number | null };
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDENTE: 'Pendente',
-  EM_ANDAMENTO: 'Em andamento',
-  CONCLUIDA: 'Concluída',
-  ATRASADA: 'Atrasada',
-  REJEITADA: 'Rejeitada'
-};
-
 const REASSIGNABLE = new Set(['PENDENTE', 'EM_ANDAMENTO', 'ATRASADA']);
 
-const RECURRENCE_LABEL: Record<string, string> = {
-  ONCE: 'Uma vez',
-  DAILY: 'Diária',
-  WEEKLY: 'Semanal',
-  MONTHLY: 'Mensal',
-  CUSTOM: 'Personalizado'
-};
-
-const TARGET_LABEL: Record<string, string> = {
-  MANAGERS: 'Todos os gerentes',
-  ALL: 'Todos',
-  SECTOR: 'Setor',
-  USER: 'Usuário'
-};
-
-const RUN_FILTERS: Array<{ value: string; label: string }> = [
-  { value: '', label: 'Todas' },
-  { value: 'PENDENTE', label: 'Pendentes' },
-  { value: 'EM_ANDAMENTO', label: 'Em andamento' },
-  { value: 'CONCLUIDA', label: 'Concluídas' },
-  { value: 'ATRASADA', label: 'Atrasadas' },
-  { value: 'REJEITADA', label: 'Rejeitadas' }
+const RUN_FILTERS: Array<{ value: string; key: string }> = [
+  { value: '', key: 'routines.filter.all' },
+  { value: 'PENDENTE', key: 'routines.filter.pending' },
+  { value: 'EM_ANDAMENTO', key: 'routines.filter.inProgress' },
+  { value: 'CONCLUIDA', key: 'routines.filter.done' },
+  { value: 'ATRASADA', key: 'routines.filter.late' },
+  { value: 'REJEITADA', key: 'routines.filter.rejected' }
 ];
 
 export default function Routines() {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const i18n = useI18n();
   const canDelete = session?.role === 'MASTER' || session?.role === 'OWNER';
   const isManager = session?.role === 'MANAGER' || session?.role === 'OPERATOR';
   const canPickBranch = session?.role === 'MASTER' || session?.role === 'OWNER';
@@ -167,7 +146,7 @@ export default function Routines() {
       }
       await loadRuns(runStatus);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar');
+      setError(e instanceof Error ? e.message : i18n.t('common.loadError'));
     }
   }
 
@@ -176,14 +155,14 @@ export default function Routines() {
   }, []);
 
   useEffect(() => {
-    loadRuns(runStatus).catch((e) => setError(e instanceof Error ? e.message : 'Erro ao carregar'));
+    loadRuns(runStatus).catch((e) => setError(e instanceof Error ? e.message : i18n.t('common.loadError')));
   }, [runStatus]);
 
   async function createTask(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (recurrence === 'CUSTOM' && customDays.length === 0) {
-      setError('Selecione ao menos um dia no calendário.');
+      setError(i18n.t('routines.err.selectDay'));
       return;
     }
     try {
@@ -217,18 +196,18 @@ export default function Routines() {
       setChecklistItems([]);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao criar tarefa');
+      setError(e instanceof Error ? e.message : i18n.t('routines.err.create'));
     }
   }
 
   async function removeTemplate(id: number) {
-    if (!window.confirm('Remover esta rotina programada?')) return;
+    if (!window.confirm(i18n.t('routines.confirm.remove'))) return;
     setError(null);
     try {
       await apiDelete(`/routines/templates/${id}`);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao remover');
+      setError(e instanceof Error ? e.message : i18n.t('routines.err.remove'));
     }
   }
 
@@ -238,7 +217,7 @@ export default function Routines() {
       await apiPost(`/routines/templates/${id}/generate`, {});
       await loadRuns(runStatus);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao gerar');
+      setError(e instanceof Error ? e.message : i18n.t('routines.err.generate'));
     }
   }
 
@@ -256,7 +235,7 @@ export default function Routines() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao exportar');
+      setError(e instanceof Error ? e.message : i18n.t('routines.err.export'));
     }
   }
 
@@ -289,7 +268,7 @@ export default function Routines() {
 
   async function bulkDeleteTemplates() {
     if (selTemplates.size === 0) return;
-    if (!window.confirm(`Excluir ${selTemplates.size} rotina(s) programada(s) selecionada(s)?`)) return;
+    if (!window.confirm(i18n.t('routines.confirm.bulkDelete', { n: selTemplates.size }))) return;
     setError(null);
     try {
       await apiPost('/routines/templates/bulk-delete', { ids: Array.from(selTemplates) });
@@ -297,7 +276,7 @@ export default function Routines() {
       setDeleteMode(false);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao excluir');
+      setError(e instanceof Error ? e.message : i18n.t('routines.err.delete'));
     }
   }
 
@@ -311,43 +290,43 @@ export default function Routines() {
       const done = res?.reassigned ?? 0;
       const skipped = res?.skipped ?? 0;
       setNotice(
-        `${done} tarefa(s) reatribuída(s)${target ? ` para ${target.fullName}` : ''}` +
-          (skipped ? ` · ${skipped} ignorada(s)` : '') + '.'
+        i18n.t('routines.reassigned', { done, to: target ? i18n.t('routines.reassigned.to', { name: target.fullName }) : '' }) +
+          (skipped ? i18n.t('routines.reassigned.skipped', { n: skipped }) : '') + '.'
       );
       setSelRuns(new Set());
       setReassignUser('');
       setReassignMode(false);
       await loadRuns(runStatus);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao reatribuir');
+      setError(e instanceof Error ? e.message : i18n.t('routines.err.reassign'));
     }
   }
 
   function targetSummary(t: Template): string {
     if (t.targetType === 'USER') {
       const u = users.find((x) => x.id === t.targetUserId);
-      return u ? u.fullName : 'Usuário';
+      return u ? u.fullName : i18n.t('target.USER');
     }
     if (t.targetType === 'SECTOR') {
       const s = sectors.find((x) => x.id === t.targetSectorId);
-      return s ? `Setor: ${s.name}` : 'Setor';
+      return s ? `${i18n.t('target.SECTOR')}: ${s.name}` : i18n.t('target.SECTOR');
     }
-    return TARGET_LABEL[t.targetType] ?? t.targetType;
+    return i18n.t('target.' + t.targetType);
   }
 
   function scheduleSummary(t: Template): string {
-    const rec = RECURRENCE_LABEL[t.recurrenceRule] ?? t.recurrenceRule;
+    const rec = i18n.t('rec.' + t.recurrenceRule);
     let extra = '';
     if (t.recurrenceRule === 'CUSTOM' && t.customDays) {
-      extra = ` · dias ${t.customDays}`;
+      extra = ` · ${i18n.t('sched.days', { days: t.customDays })}`;
     } else if (t.recurrenceRule === 'MONTHLY' && t.dayOfMonth != null) {
-      extra = ` · dia ${t.dayOfMonth}`;
+      extra = ` · ${i18n.t('sched.day', { n: t.dayOfMonth })}`;
     }
     if (t.businessDaysOnly) {
-      extra += ' · dia útil seguinte se fim de semana';
+      extra += ` · ${i18n.t('sched.businessDayNext')}`;
     }
     const window = t.startTime && t.dueTime ? ` · ${t.startTime.slice(0, 5)}–${t.dueTime.slice(0, 5)}` : '';
-    const reminder = t.reminderBeforeMinutes != null ? ` · aviso ${t.reminderBeforeMinutes}min antes` : '';
+    const reminder = t.reminderBeforeMinutes != null ? ` · ${i18n.t('sched.reminderBefore', { n: t.reminderBeforeMinutes })}` : '';
     return `${rec}${extra}${window} · ${targetSummary(t)}${reminder}`;
   }
 
@@ -364,31 +343,31 @@ export default function Routines() {
 
       <section className="card">
         <details>
-          <summary className="section-summary">Nova tarefa</summary>
+          <summary className="section-summary">{i18n.t('routines.newTask')}</summary>
         <form onSubmit={createTask} className="stack">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (ex: Checklist de abertura)" required />
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição / instruções (opcional)" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={i18n.t('routines.title.placeholder')} required />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={i18n.t('routines.desc.placeholder')} />
 
-          <label className="field-label">Recorrência</label>
+          <label className="field-label">{i18n.t('routines.recurrence')}</label>
           <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
-            <option value="ONCE">Uma vez</option>
-            <option value="DAILY">Diária</option>
-            <option value="WEEKLY">Semanal</option>
-            <option value="MONTHLY">Mensal</option>
-            <option value="CUSTOM">Personalizado</option>
+            <option value="ONCE">{i18n.t('rec.ONCE')}</option>
+            <option value="DAILY">{i18n.t('rec.DAILY')}</option>
+            <option value="WEEKLY">{i18n.t('rec.WEEKLY')}</option>
+            <option value="MONTHLY">{i18n.t('rec.MONTHLY')}</option>
+            <option value="CUSTOM">{i18n.t('rec.CUSTOM')}</option>
           </select>
 
-          <label className="field-label">Para quem</label>
+          <label className="field-label">{i18n.t('routines.forWhom')}</label>
           <select value={targetType} onChange={(e) => setTargetType(e.target.value)}>
-            <option value="MANAGERS">Todos os gerentes</option>
-            <option value="ALL">Todos</option>
-            <option value="SECTOR">Setor específico</option>
-            <option value="USER">Usuário específico</option>
+            <option value="MANAGERS">{i18n.t('routines.target.managers')}</option>
+            <option value="ALL">{i18n.t('routines.target.all')}</option>
+            <option value="SECTOR">{i18n.t('routines.target.sector')}</option>
+            <option value="USER">{i18n.t('routines.target.user')}</option>
           </select>
 
           {canPickBranch && (
             <>
-              <label className="field-label">Filial</label>
+              <label className="field-label">{i18n.t('routines.branch')}</label>
               <select
                 value={branchId}
                 onChange={(e) => {
@@ -398,7 +377,7 @@ export default function Routines() {
                 }}
                 required
               >
-                <option value="">Selecione a filial</option>
+                <option value="">{i18n.t('routines.selectBranch')}</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
@@ -408,7 +387,7 @@ export default function Routines() {
 
           {targetType === 'SECTOR' && (
             <select value={sectorId} onChange={(e) => setSectorId(e.target.value === '' ? '' : Number(e.target.value))} required>
-              <option value="">Selecione o setor</option>
+              <option value="">{i18n.t('routines.selectSector')}</option>
               {sectorsForBranch.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
@@ -416,12 +395,12 @@ export default function Routines() {
           )}
           {targetType === 'USER' && (
             <select value={userId} onChange={(e) => setUserId(e.target.value)} required>
-              <option value="">Selecione o usuário</option>
+              <option value="">{i18n.t('routines.selectUser')}</option>
               {usersForBranch
                 .filter((u) => u.role !== 'MASTER')
                 .map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.fullName} ({u.role === 'OWNER' ? 'Dono da empresa' : u.role === 'MANAGER' ? 'Gerente' : u.role === 'OPERATOR' ? 'Funcionário' : u.role})
+                    {u.fullName} ({u.role === 'OWNER' ? i18n.t('user.owner') : u.role === 'MANAGER' ? i18n.t('user.manager') : u.role === 'OPERATOR' ? i18n.t('user.operator') : u.role})
                   </option>
                 ))}
             </select>
@@ -429,29 +408,29 @@ export default function Routines() {
 
           {recurrence === 'WEEKLY' && (
             <>
-              <label className="field-label">Dia da semana</label>
+              <label className="field-label">{i18n.t('routines.weekday')}</label>
               <select value={weekday} onChange={(e) => setWeekday(Number(e.target.value))}>
-                <option value={1}>Segunda</option>
-                <option value={2}>Terça</option>
-                <option value={3}>Quarta</option>
-                <option value={4}>Quinta</option>
-                <option value={5}>Sexta</option>
-                <option value={6}>Sábado</option>
-                <option value={7}>Domingo</option>
+                <option value={1}>{i18n.t('wd.1')}</option>
+                <option value={2}>{i18n.t('wd.2')}</option>
+                <option value={3}>{i18n.t('wd.3')}</option>
+                <option value={4}>{i18n.t('wd.4')}</option>
+                <option value={5}>{i18n.t('wd.5')}</option>
+                <option value={6}>{i18n.t('wd.6')}</option>
+                <option value={7}>{i18n.t('wd.7')}</option>
               </select>
             </>
           )}
           {recurrence === 'MONTHLY' && (
             <>
-              <label className="field-label">Dia do mês</label>
+              <label className="field-label">{i18n.t('routines.dayOfMonth')}</label>
               <input type="number" min={1} max={31} value={dayOfMonth} onChange={(e) => setDayOfMonth(Number(e.target.value))} />
             </>
           )}
           {recurrence === 'CUSTOM' && (
             <>
-              <label className="field-label">Dias do mês</label>
-              <p className="muted small">Toque nos números para selecionar os dias em que a tarefa deve repetir.</p>
-              <div className="day-calendar" role="group" aria-label="Calendário de dias do mês">
+              <label className="field-label">{i18n.t('routines.daysOfMonth')}</label>
+              <p className="muted small">{i18n.t('routines.daysOfMonth.hint')}</p>
+              <div className="day-calendar" role="group" aria-label={i18n.t('routines.daysOfMonth')}>
                 {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                   <button
                     key={day}
@@ -465,13 +444,13 @@ export default function Routines() {
                 ))}
               </div>
               {customDays.length > 0 && (
-                <p className="muted small">Selecionados: {customDays.join(', ')}</p>
+                <p className="muted small">{i18n.t('routines.selected', { days: customDays.join(', ') })}</p>
               )}
             </>
           )}
           {recurrence === 'ONCE' && (
             <>
-              <label className="field-label">Data</label>
+              <label className="field-label">{i18n.t('routines.date')}</label>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
             </>
           )}
@@ -482,45 +461,45 @@ export default function Routines() {
                 checked={businessDaysOnly}
                 onChange={(e) => setBusinessDaysOnly(e.target.checked)}
               />
-              Considerar somente dias úteis
+              {i18n.t('routines.businessDaysOnly')}
             </label>
           )}
           {(recurrence === 'MONTHLY' || recurrence === 'CUSTOM') && businessDaysOnly && (
             <p className="muted small">
-              Se o dia cair no fim de semana ou feriado nacional, a tarefa é gerada no próximo dia útil.
+              {i18n.t('routines.businessDaysOnly.hint')}
             </p>
           )}
 
           <div className="time-row">
             <div className="field-block">
-              <label className="field-label">Horário de início</label>
+              <label className="field-label">{i18n.t('routines.startTime')}</label>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
             </div>
             <div className="field-block">
-              <label className="field-label">Horário de vencimento</label>
+              <label className="field-label">{i18n.t('routines.dueTime')}</label>
               <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} required />
             </div>
           </div>
 
-          <label className="field-label">Avisar quantos minutos antes do vencimento</label>
+          <label className="field-label">{i18n.t('routines.reminderMinutes')}</label>
           <input type="number" min={0} max={1440} value={reminderMinutes} onChange={(e) => setReminderMinutes(Number(e.target.value))} />
 
           <label className="check">
             <input type="checkbox" checked={requiresPhoto} onChange={(e) => setRequiresPhoto(e.target.checked)} />
-            Exige foto na conclusão
+            {i18n.t('routines.requiresPhoto')}
           </label>
           <label className="check">
             <input type="checkbox" checked={requiresComment} onChange={(e) => setRequiresComment(e.target.checked)} />
-            Exige comentário na conclusão
+            {i18n.t('routines.requiresComment')}
           </label>
           {checklistsEnabled && (
             <div className="stack">
-              <label className="field-label">Checklist (itens a marcar na execução)</label>
+              <label className="field-label">{i18n.t('routines.checklist')}</label>
               <div className="row-between">
                 <input
                   value={checklistDraft}
                   onChange={(e) => setChecklistDraft(e.target.value)}
-                  placeholder="Ex: Conferir lacres"
+                  placeholder={i18n.t('routines.checklist.placeholder')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -528,7 +507,7 @@ export default function Routines() {
                     }
                   }}
                 />
-                <button type="button" className="btn-ghost" onClick={addChecklistItem}>Adicionar</button>
+                <button type="button" className="btn-ghost" onClick={addChecklistItem}>{i18n.t('common.add')}</button>
               </div>
               {checklistItems.length > 0 && (
                 <ul className="list">
@@ -538,7 +517,7 @@ export default function Routines() {
                       <span className="actions">
                         <label className="check">
                           <input type="checkbox" checked={it.required} onChange={() => toggleItemRequired(idx)} />
-                          obrigatório
+                          {i18n.t('routines.required')}
                         </label>
                         <button type="button" className="btn-ghost danger" onClick={() => removeChecklistItem(idx)}>×</button>
                       </span>
@@ -548,30 +527,30 @@ export default function Routines() {
               )}
             </div>
           )}
-          <button type="submit" className="btn-primary">Criar tarefa</button>
+          <button type="submit" className="btn-primary">{i18n.t('routines.create')}</button>
         </form>
         </details>
       </section>
 
       <section className="card">
         <details>
-          <summary className="section-summary">Rotinas programadas ({templates.length})</summary>
+          <summary className="section-summary">{i18n.t('routines.scheduled', { n: templates.length })}</summary>
         {canDelete && templates.length > 0 && (
           <div className="row-between">
-            <span className="muted small">{deleteMode ? 'Marque as rotinas para excluir.' : ''}</span>
+            <span className="muted small">{deleteMode ? i18n.t('routines.deleteMode.hint') : ''}</span>
             <button type="button" className={`btn-ghost ${deleteMode ? 'active' : ''}`} onClick={toggleDeleteMode}>
-              {deleteMode ? 'Cancelar' : 'Excluir várias'}
+              {deleteMode ? i18n.t('common.cancel') : i18n.t('routines.deleteMany')}
             </button>
           </div>
         )}
         {deleteMode && selTemplates.size > 0 && (
           <div className="action-panel">
-            <span className="muted small">{selTemplates.size} rotina(s) selecionada(s)</span>
-            <button type="button" className="btn-primary" onClick={bulkDeleteTemplates}>Excluir selecionadas</button>
+            <span className="muted small">{i18n.t('routines.selectedCount', { n: selTemplates.size })}</span>
+            <button type="button" className="btn-primary" onClick={bulkDeleteTemplates}>{i18n.t('routines.deleteSelected')}</button>
           </div>
         )}
         {templates.length === 0 ? (
-          <p className="muted">Nenhuma rotina programada.</p>
+          <p className="muted">{i18n.t('routines.noScheduled')}</p>
         ) : (
           <ul className="list">
             {templates.map((t) => (
@@ -588,16 +567,16 @@ export default function Routines() {
                   <div className="muted small">{scheduleSummary(t)}</div>
                   {(t.requiresPhoto || t.requiresComment) && (
                     <div className="muted small">
-                      {t.requiresPhoto ? 'foto' : ''}
+                      {t.requiresPhoto ? i18n.t('routines.photo') : ''}
                       {t.requiresPhoto && t.requiresComment ? ' · ' : ''}
-                      {t.requiresComment ? 'comentário' : ''}
+                      {t.requiresComment ? i18n.t('routines.comment') : ''}
                     </div>
                   )}
                 </div>
                 {!deleteMode && (
                   <div className="actions">
-                    <button className="btn-ghost" onClick={() => generateNow(t.id)}>Gerar agora</button>
-                    {canDelete && <button className="btn-ghost danger" onClick={() => removeTemplate(t.id)}>Excluir</button>}
+                    <button className="btn-ghost" onClick={() => generateNow(t.id)}>{i18n.t('routines.generateNow')}</button>
+                    {canDelete && <button className="btn-ghost danger" onClick={() => removeTemplate(t.id)}>{i18n.t('routines.remove')}</button>}
                   </div>
                 )}
               </li>
@@ -609,13 +588,13 @@ export default function Routines() {
 
       <section className="card">
         <div className="row-between">
-          <h2>Tarefas</h2>
+          <h2>{i18n.t('routines.tasks')}</h2>
           <span className="actions">
-            <button type="button" className="btn-ghost" onClick={() => navigate('/calendar')}>📅 Calendário</button>
-            <button type="button" className="btn-ghost" onClick={exportCsv}>Exportar CSV</button>
+            <button type="button" className="btn-ghost" onClick={() => navigate('/calendar')}>📅 {i18n.t('routines.calendar')}</button>
+            <button type="button" className="btn-ghost" onClick={exportCsv}>{i18n.t('routines.exportCsv')}</button>
             {canReassign && (
               <button type="button" className={`btn-ghost ${reassignMode ? 'active' : ''}`} onClick={toggleReassignMode}>
-                {reassignMode ? 'Cancelar' : 'Reatribuir'}
+                {reassignMode ? i18n.t('common.cancel') : i18n.t('routines.reassign')}
               </button>
             )}
           </span>
@@ -624,10 +603,10 @@ export default function Routines() {
         {reassignMode && (
           <div className="action-panel">
             <p className="muted small">
-              Selecione tarefas <strong>em aberto</strong> e escolha o novo responsável. Concluídas e rejeitadas não podem ser reatribuídas.
+              {i18n.t('routines.reassign.hint')}
             </p>
             <select value={reassignUser} onChange={(e) => setReassignUser(e.target.value)}>
-              <option value="">Transferir para…</option>
+              <option value="">{i18n.t('routines.transferTo')}</option>
               {users.filter((u) => u.role !== 'MASTER').map((u) => {
                 const bName = u.branchId != null ? branches.find((b) => b.id === u.branchId)?.name : null;
                 return (
@@ -643,7 +622,7 @@ export default function Routines() {
               disabled={!reassignUser || selRuns.size === 0}
               onClick={bulkReassignRuns}
             >
-              Reatribuir {selRuns.size > 0 ? `(${selRuns.size})` : ''}
+              {i18n.t('routines.reassign')} {selRuns.size > 0 ? `(${selRuns.size})` : ''}
             </button>
           </div>
         )}
@@ -655,7 +634,7 @@ export default function Routines() {
               className={`filter-chip ${runStatus === f.value ? 'active' : ''}`}
               onClick={() => setRunStatus(f.value)}
             >
-              {f.label}
+              {i18n.t(f.key)}
             </button>
           ))}
         </div>
@@ -663,10 +642,10 @@ export default function Routines() {
           className="search-input"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por título..."
+          placeholder={i18n.t('routines.search.placeholder')}
         />
         {visibleRuns.length === 0 ? (
-          <p className="muted">Nenhuma tarefa neste filtro.</p>
+          <p className="muted">{i18n.t('routines.noTasks')}</p>
         ) : (
           <ul className="list">
             {visibleRuns.map((run) => {
@@ -687,13 +666,13 @@ export default function Routines() {
                     className={!reassignMode || eligible ? 'clickable item-main' : 'item-main'}
                     onClick={() => onRunRow(run)}
                   >
-                    <strong>{template?.title ?? `Tarefa #${run.id}`}</strong>
-                    <div className="muted small">Vence: {run.dueAt ? new Date(run.dueAt).toLocaleString() : '—'}</div>
+                    <strong>{template?.title ?? i18n.t('routines.taskNum', { id: run.id })}</strong>
+                    <div className="muted small">{i18n.t('routines.due')} {run.dueAt ? new Date(run.dueAt).toLocaleString() : '—'}</div>
                     {reassignMode && !eligible && (
-                      <div className="muted small">Não pode ser reatribuída ({STATUS_LABEL[run.status] ?? run.status})</div>
+                      <div className="muted small">{i18n.t('routines.notReassignable', { status: i18n.t('status.' + run.status) })}</div>
                     )}
                   </div>
-                  <span className={`chip status-${run.status.toLowerCase()}`}>{STATUS_LABEL[run.status] ?? run.status}</span>
+                  <span className={`chip status-${run.status.toLowerCase()}`}>{i18n.t('status.' + run.status)}</span>
                 </li>
               );
             })}

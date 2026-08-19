@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../api';
+import { useI18n } from '../i18n';
 
 type EmailSettings = {
   enabled: boolean;
@@ -20,6 +21,7 @@ export default function AdminEmailSettings({
   onOk: (msg: string) => void;
   onError: (e: unknown) => void;
 }) {
+  const { t } = useI18n();
   const [s, setS] = useState<EmailSettings | null>(null);
   const [password, setPassword] = useState('');
   const [testTo, setTestTo] = useState('');
@@ -46,7 +48,7 @@ export default function AdminEmailSettings({
       });
       setS(next);
       setPassword('');
-      onOk('Configuração de e-mail salva.');
+      onOk(t('aemail.saved'));
     } catch (e) {
       onError(e);
     } finally {
@@ -58,7 +60,7 @@ export default function AdminEmailSettings({
     setBusy(true);
     try {
       await apiPost('/admin/email-settings/test', { to: testTo.trim() });
-      onOk('E-mail de teste enviado.');
+      onOk(t('aemail.testSent'));
     } catch (e) {
       onError(e);
     } finally {
@@ -70,27 +72,27 @@ export default function AdminEmailSettings({
 
   return (
     <section className="card">
-      <h2>E-mail (recuperação de senha e avisos)</h2>
+      <h2>{t('aemail.title')}</h2>
       <p className="muted small">
-        Configure o SMTP que enviará os e-mails. A senha é guardada cifrada e nunca é exibida. Só o administrador altera.
+        {t('aemail.desc')}
       </p>
       <div className="stack">
         <label className="check">
           <input type="checkbox" checked={s.enabled} onChange={(e) => setS({ ...s, enabled: e.target.checked })} />
-          Habilitar envio de e-mails
+          {t('aemail.enable')}
         </label>
-        <label className="field-label">Servidor SMTP (host)
+        <label className="field-label">{t('aemail.host')}
           <input
             value={s.host ?? ''}
             onChange={(e) => setS({ ...s, host: e.target.value })}
-            placeholder="ex: smtp.seuprovedor.com"
+            placeholder={t('aemail.hostPlaceholder')}
             autoCapitalize="none"
             autoComplete="off"
           />
         </label>
         <div className="time-row">
           <div className="field-block">
-            <label className="field-label">Porta
+            <label className="field-label">{t('aemail.port')}
               <input type="number" value={s.port} onChange={(e) => setS({ ...s, port: Number(e.target.value) })} />
             </label>
           </div>
@@ -103,7 +105,7 @@ export default function AdminEmailSettings({
             </label>
           </div>
         </div>
-        <label className="field-label">Usuário SMTP
+        <label className="field-label">{t('aemail.username')}
           <input
             value={s.username ?? ''}
             onChange={(e) => setS({ ...s, username: e.target.value })}
@@ -112,42 +114,42 @@ export default function AdminEmailSettings({
           />
         </label>
         <label className="field-label">
-          Senha SMTP {s.passwordSet && <span className="muted small">(já definida — deixe em branco para manter)</span>}
+          {t('aemail.password')} {s.passwordSet && <span className="muted small">{t('aemail.passwordSet')}</span>}
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={s.passwordSet ? '•••••• (mantém a atual)' : ''}
+            placeholder={s.passwordSet ? t('aemail.passwordPlaceholder') : ''}
             autoComplete="new-password"
           />
         </label>
-        <label className="field-label">E-mail remetente (de)
+        <label className="field-label">{t('aemail.fromEmail')}
           <input
             type="email"
             value={s.fromEmail ?? ''}
             onChange={(e) => setS({ ...s, fromEmail: e.target.value })}
-            placeholder="nao-responder@seu-dominio.com"
+            placeholder={t('aemail.fromEmailPlaceholder')}
             autoCapitalize="none"
             autoComplete="off"
           />
         </label>
-        <label className="field-label">Nome do remetente
+        <label className="field-label">{t('aemail.fromName')}
           <input value={s.fromName} onChange={(e) => setS({ ...s, fromName: e.target.value })} />
         </label>
         <button className="btn-primary" type="button" onClick={save} disabled={busy}>
-          {busy ? 'Salvando...' : 'Salvar e-mail'}
+          {busy ? t('account.saving') : t('aemail.save')}
         </button>
         <div className="row-between">
           <input
             value={testTo}
             onChange={(e) => setTestTo(e.target.value)}
             type="email"
-            placeholder="enviar teste para..."
+            placeholder={t('aemail.testPlaceholder')}
             autoCapitalize="none"
             autoComplete="off"
           />
           <button className="btn-ghost" type="button" onClick={sendTest} disabled={busy || !testTo.trim()}>
-            Enviar teste
+            {t('aemail.sendTest')}
           </button>
         </div>
       </div>

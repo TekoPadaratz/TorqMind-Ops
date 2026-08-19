@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../api';
+import { useI18n } from '../i18n';
 
 type Company = { id: number; name: string };
 type ApiKeyView = {
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export default function AdminApiKeys({ companies, onOk, onError }: Props) {
+  const { t } = useI18n();
   const [companyId, setCompanyId] = useState<number | ''>('');
   const [name, setName] = useState('');
   const [keys, setKeys] = useState<ApiKeyView[]>([]);
@@ -39,11 +41,11 @@ export default function AdminApiKeys({ companies, onOk, onError }: Props) {
     setBusy(true);
     setCreated(null);
     try {
-      const res = await apiPost('/admin/api-keys', { companyId, name: name.trim() || 'Chave' });
+      const res = await apiPost('/admin/api-keys', { companyId, name: name.trim() || t('akeys.defaultName') });
       setCreated(res.key);
       setName('');
       load(companyId);
-      onOk('Chave criada. Copie agora — ela não será exibida novamente.');
+      onOk(t('akeys.created'));
     } catch (e) {
       onError(e);
     } finally {
@@ -52,11 +54,11 @@ export default function AdminApiKeys({ companies, onOk, onError }: Props) {
   }
 
   async function revoke(id: number) {
-    if (!window.confirm('Revogar esta chave? Integrações que a usam vão parar de funcionar.')) return;
+    if (!window.confirm(t('akeys.confirmRevoke'))) return;
     try {
       await apiDelete(`/admin/api-keys/${id}`);
       if (typeof companyId === 'number') load(companyId);
-      onOk('Chave revogada.');
+      onOk(t('akeys.revoked'));
     } catch (e) {
       onError(e);
     }
@@ -64,14 +66,14 @@ export default function AdminApiKeys({ companies, onOk, onError }: Props) {
 
   return (
     <section className="card">
-      <h2>API pública (somente leitura)</h2>
+      <h2>{t('akeys.title')}</h2>
       <p className="muted small">
-        Gere uma chave para integrar os dados da empresa (BI/ERP). Envie no header <code>X-API-Key</code> para{' '}
-        <code>/api/public/v1/…</code>. A chave aparece uma única vez e é guardada apenas como hash.
+        {t('akeys.descA')} <code>X-API-Key</code> {t('akeys.descB')}{' '}
+        <code>/api/public/v1/…</code>{t('akeys.descC')}
       </p>
-      <label className="field-label">Empresa
+      <label className="field-label">{t('admin.company')}
         <select value={companyId} onChange={(e) => setCompanyId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">Selecione a empresa</option>
+          <option value="">{t('akeys.selectCompany')}</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -79,20 +81,20 @@ export default function AdminApiKeys({ companies, onOk, onError }: Props) {
       </label>
       {typeof companyId === 'number' && (
         <>
-          <label className="field-label">Nome da chave
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Integração BI" />
+          <label className="field-label">{t('akeys.keyName')}
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('akeys.keyNamePlaceholder')} />
           </label>
           <button type="button" className="btn-primary" disabled={busy} onClick={create}>
-            {busy ? 'Gerando…' : 'Gerar chave'}
+            {busy ? t('akeys.generating') : t('akeys.generate')}
           </button>
           {created && (
             <div className="alert-ok" style={{ marginTop: 10 }}>
-              <div className="muted small">Copie agora (não será exibida de novo):</div>
+              <div className="muted small">{t('akeys.copyNow')}</div>
               <code className="secret-code">{created}</code>
             </div>
           )}
           {keys.length === 0 ? (
-            <p className="muted small">Nenhuma chave para esta empresa.</p>
+            <p className="muted small">{t('akeys.none')}</p>
           ) : (
             <ul className="list" style={{ marginTop: 12 }}>
               {keys.map((k) => (
@@ -101,12 +103,12 @@ export default function AdminApiKeys({ companies, onOk, onError }: Props) {
                     <strong>{k.name}</strong>
                     <div className="muted small">
                       {k.maskedKey}
-                      {k.active ? '' : ' · revogada'}
-                      {k.lastUsedAt ? ` · uso ${new Date(k.lastUsedAt).toLocaleDateString()}` : ' · sem uso'}
+                      {k.active ? '' : ` · ${t('akeys.revokedTag')}`}
+                      {k.lastUsedAt ? ` · ${t('akeys.usedPrefix')} ${new Date(k.lastUsedAt).toLocaleDateString()}` : ` · ${t('akeys.neverUsed')}`}
                     </div>
                   </div>
                   {k.active && (
-                    <button type="button" className="btn-ghost danger" onClick={() => revoke(k.id)}>Revogar</button>
+                    <button type="button" className="btn-ghost danger" onClick={() => revoke(k.id)}>{t('akeys.revoke')}</button>
                   )}
                 </li>
               ))}

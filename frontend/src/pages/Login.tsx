@@ -112,7 +112,7 @@ export default function Login() {
                 onChange={(e) => setForgotEmail(e.target.value)}
                 type="email"
                 autoComplete="email"
-                placeholder="seu@email.com"
+                placeholder={t('login.emailPlaceholder')}
                 required
               />
             </label>

@@ -2,36 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiGet, apiPost, uploadOrQueue, currentGeo } from '../api';
 import { useAuth } from '../auth';
+import { useI18n } from '../i18n';
 import { Thread } from '../components/Thread';
 import { openAttachment } from '../components/AuthMedia';
 
-const ROUTINE_ACTIONS: Record<string, Array<{ label: string; status: string }>> = {
+const ROUTINE_ACTIONS: Record<string, Array<{ labelKey: string; status: string }>> = {
   PENDENTE: [
-    { label: 'Iniciar', status: 'EM_ANDAMENTO' },
-    { label: 'Rejeitar', status: 'REJEITADA' }
+    { labelKey: 'rdetail.start', status: 'EM_ANDAMENTO' },
+    { labelKey: 'rdetail.reject', status: 'REJEITADA' }
   ],
   EM_ANDAMENTO: [
-    { label: 'Concluir', status: 'CONCLUIDA' },
-    { label: 'Rejeitar', status: 'REJEITADA' }
+    { labelKey: 'rdetail.complete', status: 'CONCLUIDA' },
+    { labelKey: 'rdetail.reject', status: 'REJEITADA' }
   ],
   ATRASADA: [
-    { label: 'Iniciar', status: 'EM_ANDAMENTO' },
-    { label: 'Concluir', status: 'CONCLUIDA' }
+    { labelKey: 'rdetail.start', status: 'EM_ANDAMENTO' },
+    { labelKey: 'rdetail.complete', status: 'CONCLUIDA' }
   ]
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDENTE: 'Pendente',
-  EM_ANDAMENTO: 'Em andamento',
-  CONCLUIDA: 'Concluída',
-  ATRASADA: 'Atrasada',
-  REJEITADA: 'Rejeitada'
 };
 
 export default function RoutineDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { t } = useI18n();
   const [detail, setDetail] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -43,7 +37,7 @@ export default function RoutineDetail() {
       setDetail(await apiGet(`/routines/runs/${id}`));
       apiGet(`/routines/runs/${id}/checklist`).then(setChecklist).catch(() => setChecklist([]));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar');
+      setError(e instanceof Error ? e.message : t('common.loadError'));
     }
   }
   useEffect(() => {
@@ -56,7 +50,7 @@ export default function RoutineDetail() {
       await apiPost(`/routines/runs/${id}/checklist/${itemId}`, { checked });
       setChecklist(await apiGet(`/routines/runs/${id}/checklist`));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao atualizar o checklist');
+      setError(e instanceof Error ? e.message : t('rdetail.err.checklist'));
     }
   }
 
@@ -67,7 +61,7 @@ export default function RoutineDetail() {
       await apiPost(`/routines/runs/${id}/transition`, { status });
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro na transição');
+      setError(e instanceof Error ? e.message : t('rdetail.err.transition'));
     } finally {
       setBusy(false);
     }
@@ -80,7 +74,7 @@ export default function RoutineDetail() {
       await apiPost(`/routines/runs/${id}/comments`, { body: text });
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao adicionar comentário');
+      setError(e instanceof Error ? e.message : t('rdetail.err.comment'));
     } finally {
       setBusy(false);
     }
@@ -93,19 +87,19 @@ export default function RoutineDetail() {
       const geo = file.type.startsWith('image/') ? await currentGeo() : null;
       const r = await uploadOrQueue(`/routines/runs/${id}/attachments`, file, geo);
       if (r.queued) {
-        setNotice('Sem conexão: a foto foi salva e será enviada automaticamente ao reconectar.');
+        setNotice(t('rdetail.offlineQueued'));
       } else {
         await reload();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha no upload');
+      setError(e instanceof Error ? e.message : t('rdetail.err.upload'));
     } finally {
       setBusy(false);
     }
   }
 
   if (error && !detail) return <div className="page"><div className="alert-error">{error}</div></div>;
-  if (!detail) return <div className="page muted">Carregando...</div>;
+  if (!detail) return <div className="page muted">{t('common.loading')}</div>;
 
   const s = detail.summary;
   const actions = ROUTINE_ACTIONS[s.status] || [];
@@ -118,14 +112,14 @@ export default function RoutineDetail() {
     !s.assignee || comment.author?.id === s.assignee.id
   ) || Boolean(s.executionComment?.trim());
   const missingRequirements = [
-    s.requiresPhoto && !hasPhoto ? 'uma foto' : null,
-    s.requiresComment && !hasComment ? 'um comentário' : null
+    s.requiresPhoto && !hasPhoto ? t('rdetail.aPhoto') : null,
+    s.requiresComment && !hasComment ? t('rdetail.aComment') : null
   ].filter(Boolean);
   const canComplete = missingRequirements.length === 0;
 
   return (
     <div className="page">
-      <button className="btn-ghost back" onClick={() => navigate(-1)}>← Voltar</button>
+      <button className="btn-ghost back" onClick={() => navigate(-1)}>{t('common.back')}</button>
       {error && <div className="alert-error">{error}</div>}
       {notice && <div className="alert-ok">{notice}</div>}
 
@@ -133,29 +127,29 @@ export default function RoutineDetail() {
         <div className="detail-head">
           <h2>{s.title}</h2>
           <span className={`chip status-${String(s.status).toLowerCase()}`}>
-            {STATUS_LABEL[s.status] ?? s.status}
+            {t('status.' + s.status)}
           </span>
         </div>
         {s.description && <p className="muted">{s.description}</p>}
         <div className="detail-meta">
-          <Meta label="Responsável" value={s.assignee?.name ?? 'Não atribuído'} />
-          <Meta label="Prazo" value={s.dueAt ? new Date(s.dueAt).toLocaleString() : '—'} />
-          <Meta label="Iniciada" value={s.startedAt ? new Date(s.startedAt).toLocaleString() : '—'} />
-          <Meta label="Concluída" value={s.completedAt ? new Date(s.completedAt).toLocaleString() : '—'} />
+          <Meta label={t('rdetail.assignee')} value={s.assignee?.name ?? t('rdetail.unassigned')} />
+          <Meta label={t('rdetail.dueDate')} value={s.dueAt ? new Date(s.dueAt).toLocaleString() : '—'} />
+          <Meta label={t('rdetail.startedAt')} value={s.startedAt ? new Date(s.startedAt).toLocaleString() : '—'} />
+          <Meta label={t('rdetail.completedAt')} value={s.completedAt ? new Date(s.completedAt).toLocaleString() : '—'} />
         </div>
         <div className="requirements">
-          {s.requiresPhoto && <span className="chip req">{hasPhoto ? 'Foto anexada' : 'Foto pendente'}</span>}
-          {s.requiresComment && <span className="chip req">{hasComment ? 'Comentário registrado' : 'Comentário pendente'}</span>}
+          {s.requiresPhoto && <span className="chip req">{hasPhoto ? t('rdetail.photoAttached') : t('rdetail.photoPending')}</span>}
+          {s.requiresComment && <span className="chip req">{hasComment ? t('rdetail.commentDone') : t('rdetail.commentPending')}</span>}
         </div>
         {!canComplete && (
-          <p className="muted small">Para concluir, registre {missingRequirements.join(' e ')}.</p>
+          <p className="muted small">{t('rdetail.toComplete', { items: missingRequirements.join(t('common.and')) })}</p>
         )}
         {!isAssignedExecutor && actions.some((action) => action.status === 'EM_ANDAMENTO' || action.status === 'CONCLUIDA') && (
-          <p className="muted small">Somente o responsável pode iniciar ou concluir esta tarefa.</p>
+          <p className="muted small">{t('rdetail.onlyAssignee')}</p>
         )}
         <div className="actions detail-actions">
           <button type="button" className="btn-ghost" onClick={() => openAttachment(`/routines/runs/${id}/report`)}>
-            Baixar comprovante PDF
+            {t('rdetail.downloadPdf')}
           </button>
         </div>
         {actions.length > 0 && (
@@ -167,10 +161,10 @@ export default function RoutineDetail() {
                 disabled={busy
                   || ((a.status === 'EM_ANDAMENTO' || a.status === 'CONCLUIDA') && !isAssignedExecutor)
                   || (a.status === 'CONCLUIDA' && !canComplete)}
-                title={a.status === 'CONCLUIDA' && !canComplete ? `Falta ${missingRequirements.join(' e ')}` : undefined}
+                title={a.status === 'CONCLUIDA' && !canComplete ? t('rdetail.missing', { items: missingRequirements.join(t('common.and')) }) : undefined}
                 onClick={() => transition(a.status)}
               >
-                {a.label}
+                {t(a.labelKey)}
               </button>
             ))}
           </div>
@@ -179,13 +173,13 @@ export default function RoutineDetail() {
 
       {checklist.length > 0 && (
         <section className="card">
-          <h2>Checklist</h2>
+          <h2>{t('rdetail.checklist')}</h2>
           {checklist.filter((c) => c.required && !c.checked).length > 0 ? (
             <p className="muted small">
-              {checklist.filter((c) => c.required && !c.checked).length} item(ns) obrigatório(s) pendente(s) para concluir.
+              {t('rdetail.checklistPending', { n: checklist.filter((c) => c.required && !c.checked).length })}
             </p>
           ) : (
-            <p className="muted small">Todos os itens obrigatórios concluídos.</p>
+            <p className="muted small">{t('rdetail.checklistDone')}</p>
           )}
           <ul className="list">
             {checklist.map((c) => (
@@ -198,7 +192,7 @@ export default function RoutineDetail() {
                     onChange={(e) => toggleCheck(c.id, e.target.checked)}
                   />
                   {c.label}
-                  {!c.required && <span className="muted small"> (opcional)</span>}
+                  {!c.required && <span className="muted small"> ({t('common.optional')})</span>}
                 </label>
               </li>
             ))}

@@ -20,6 +20,7 @@ function LanguageCard() {
 }
 
 function TwoFactorCard() {
+  const { t } = useI18n();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [setup, setSetup] = useState<{ secret: string; otpauthUri: string } | null>(null);
   const [code, setCode] = useState('');
@@ -38,7 +39,7 @@ function TwoFactorCard() {
     try {
       setSetup(await apiPost('/auth/2fa/setup', {}));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao iniciar.');
+      setError(e instanceof Error ? e.message : t('account.2fa.errStart'));
     } finally {
       setBusy(false);
     }
@@ -54,9 +55,9 @@ function TwoFactorCard() {
       setEnabled(true);
       setSetup(null);
       setCode('');
-      setOk('Verificação em duas etapas ativada.');
+      setOk(t('account.2fa.enabled'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Código inválido.');
+      setError(e instanceof Error ? e.message : t('account.2fa.invalidCode'));
     } finally {
       setBusy(false);
     }
@@ -71,9 +72,9 @@ function TwoFactorCard() {
       await apiPost('/auth/2fa/disable', { code: code.trim() });
       setEnabled(false);
       setCode('');
-      setOk('Verificação em duas etapas desativada.');
+      setOk(t('account.2fa.disabledMsg'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Código inválido.');
+      setError(e instanceof Error ? e.message : t('account.2fa.invalidCode'));
     } finally {
       setBusy(false);
     }
@@ -81,16 +82,16 @@ function TwoFactorCard() {
 
   return (
     <section className="card">
-      <h2>Verificação em duas etapas</h2>
+      <h2>{t('account.2fa.title')}</h2>
       <p className="muted small">
-        Proteja o acesso com um código do seu app de autenticação (Google Authenticator, Authy, etc.).
+        {t('account.2fa.desc')}
       </p>
-      {enabled === null && <p className="muted">Carregando...</p>}
+      {enabled === null && <p className="muted">{t('common.loading')}</p>}
 
       {enabled === true && (
         <form className="stack" onSubmit={disable}>
-          <div className="alert-ok">Ativa nesta conta.</div>
-          <label className="field-label">Para desativar, informe um código atual
+          <div className="alert-ok">{t('account.2fa.activeHere')}</div>
+          <label className="field-label">{t('account.2fa.toDisable')}
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -104,7 +105,7 @@ function TwoFactorCard() {
           {error && <div className="alert-error">{error}</div>}
           {ok && <div className="alert-ok">{ok}</div>}
           <button className="btn-ghost" type="submit" disabled={busy}>
-            {busy ? 'Processando...' : 'Desativar'}
+            {busy ? t('account.processing') : t('account.2fa.disable')}
           </button>
         </form>
       )}
@@ -114,19 +115,19 @@ function TwoFactorCard() {
           {ok && <div className="alert-ok">{ok}</div>}
           {error && <div className="alert-error">{error}</div>}
           <button className="btn-primary" type="button" disabled={busy} onClick={startSetup}>
-            {busy ? 'Gerando...' : 'Ativar'}
+            {busy ? t('account.2fa.generating') : t('account.2fa.enable')}
           </button>
         </>
       )}
 
       {enabled === false && setup && (
         <form className="stack" onSubmit={confirmEnable}>
-          <p className="muted small">1. Adicione esta chave no seu app de autenticação:</p>
+          <p className="muted small">{t('account.2fa.step1')}</p>
           <code className="secret-code">
             {setup.secret}
           </code>
-          <p className="muted small" style={{ wordBreak: 'break-all' }}>Ou use o link: {setup.otpauthUri}</p>
-          <label className="field-label">2. Digite o código gerado
+          <p className="muted small" style={{ wordBreak: 'break-all' }}>{t('account.2fa.orLink')} {setup.otpauthUri}</p>
+          <label className="field-label">{t('account.2fa.step2')}
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -140,7 +141,7 @@ function TwoFactorCard() {
           </label>
           {error && <div className="alert-error">{error}</div>}
           <button className="btn-primary" type="submit" disabled={busy}>
-            {busy ? 'Confirmando...' : 'Confirmar e ativar'}
+            {busy ? t('account.confirming') : t('account.2fa.confirmEnable')}
           </button>
         </form>
       )}
@@ -159,6 +160,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 }
 
 function PushCard() {
+  const { t } = useI18n();
   const supported =
     typeof navigator !== 'undefined' &&
     'serviceWorker' in navigator &&
@@ -187,7 +189,7 @@ function PushCard() {
       const reg = await navigator.serviceWorker.register('/sw-push.js');
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        setError('Permissão de notificações não concedida.');
+        setError(t('account.push.denied'));
         return;
       }
       const { publicKey } = await apiGet('/push/public-key');
@@ -201,9 +203,9 @@ function PushCard() {
         keys: { p256dh: json.keys?.p256dh, auth: json.keys?.auth }
       });
       setEnabled(true);
-      setOk('Notificações ativadas neste dispositivo.');
+      setOk(t('account.push.enabledMsg'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao ativar notificações.');
+      setError(e instanceof Error ? e.message : t('account.push.errEnable'));
     } finally {
       setBusy(false);
     }
@@ -221,9 +223,9 @@ function PushCard() {
         await sub.unsubscribe();
       }
       setEnabled(false);
-      setOk('Notificações desativadas neste dispositivo.');
+      setOk(t('account.push.disabledMsg'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao desativar.');
+      setError(e instanceof Error ? e.message : t('account.push.errDisable'));
     } finally {
       setBusy(false);
     }
@@ -231,23 +233,23 @@ function PushCard() {
 
   return (
     <section className="card">
-      <h2>Notificações no dispositivo</h2>
+      <h2>{t('account.push.title')}</h2>
       <p className="muted small">
-        Receba avisos de tarefas atrasadas e reatribuições mesmo com o app fechado. No iPhone, primeiro adicione o app à tela de início.
+        {t('account.push.desc')}
       </p>
       {!supported ? (
-        <p className="muted small">Este dispositivo/navegador não suporta notificações push.</p>
+        <p className="muted small">{t('account.push.unsupported')}</p>
       ) : (
         <>
           {error && <div className="alert-error">{error}</div>}
           {ok && <div className="alert-ok">{ok}</div>}
           {enabled ? (
             <button className="btn-ghost" type="button" disabled={busy} onClick={disable}>
-              {busy ? 'Processando…' : 'Desativar notificações'}
+              {busy ? t('account.processing') : t('account.push.disableBtn')}
             </button>
           ) : (
             <button className="btn-primary" type="button" disabled={busy} onClick={enable}>
-              {busy ? 'Ativando…' : 'Ativar notificações'}
+              {busy ? t('account.push.enabling') : t('account.push.enableBtn')}
             </button>
           )}
         </>
@@ -258,6 +260,7 @@ function PushCard() {
 
 export default function Account() {
   const { session, replaceSession } = useAuth();
+  const { t } = useI18n();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -275,7 +278,7 @@ export default function Account() {
       return;
     }
     if (currentPassword === newPassword) {
-      setError('A nova senha deve ser diferente da atual.');
+      setError(t('account.pwd.mustDiffer'));
       return;
     }
     setLoading(true);
@@ -285,9 +288,9 @@ export default function Account() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setOk('Senha atualizada. Sua sessão continua ativa.');
+      setOk(t('account.pwd.updated'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível trocar a senha.');
+      setError(err instanceof Error ? err.message : t('account.pwd.errChange'));
     } finally {
       setLoading(false);
     }
@@ -296,12 +299,12 @@ export default function Account() {
   return (
     <div className="page">
       <section className="card">
-        <h2>Minha senha</h2>
+        <h2>{t('account.pwd.title')}</h2>
         <p className="muted small">
           {session?.fullName} · @{session?.username}
         </p>
         <form className="stack" onSubmit={onSubmit}>
-          <label className="field-label">Senha atual
+          <label className="field-label">{t('account.pwd.current')}
             <PasswordField
               value={currentPassword}
               onChange={setCurrentPassword}
@@ -309,16 +312,16 @@ export default function Account() {
               required
             />
           </label>
-          <label className="field-label">Nova senha
+          <label className="field-label">{t('account.pwd.new')}
             <PasswordField
               value={newPassword}
               onChange={setNewPassword}
               autoComplete="new-password"
-              placeholder="mín. 8, letras e números"
+              placeholder={t('account.pwd.hint')}
               required
             />
           </label>
-          <label className="field-label">Confirmar nova senha
+          <label className="field-label">{t('account.pwd.confirm')}
             <PasswordField
               value={confirmPassword}
               onChange={setConfirmPassword}
@@ -329,7 +332,7 @@ export default function Account() {
           {error && <div className="alert-error">{error}</div>}
           {ok && <div className="alert-ok">{ok}</div>}
           <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? 'Salvando...' : 'Trocar senha'}
+            {loading ? t('account.saving') : t('account.pwd.change')}
           </button>
         </form>
       </section>

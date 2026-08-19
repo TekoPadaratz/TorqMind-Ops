@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../api';
+import { useI18n } from '../i18n';
 
 type Company = { id: number; name: string };
 type WebhookView = {
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export default function AdminWebhooks({ companies, onOk, onError }: Props) {
+  const { t } = useI18n();
   const [companyId, setCompanyId] = useState<number | ''>('');
   const [url, setUrl] = useState('');
   const [hooks, setHooks] = useState<WebhookView[]>([]);
@@ -45,7 +47,7 @@ export default function AdminWebhooks({ companies, onOk, onError }: Props) {
       setSecret(res.secret);
       setUrl('');
       load(companyId);
-      onOk('Webhook criado. Guarde o segredo — ele valida a assinatura das entregas.');
+      onOk(t('whook.created'));
     } catch (e) {
       onError(e);
     } finally {
@@ -54,11 +56,11 @@ export default function AdminWebhooks({ companies, onOk, onError }: Props) {
   }
 
   async function remove(id: number) {
-    if (!window.confirm('Excluir este webhook? As entregas para esta URL param.')) return;
+    if (!window.confirm(t('whook.confirmDelete'))) return;
     try {
       await apiDelete(`/admin/webhooks/${id}`);
       if (typeof companyId === 'number') load(companyId);
-      onOk('Webhook excluído.');
+      onOk(t('whook.deleted'));
     } catch (e) {
       onError(e);
     }
@@ -67,8 +69,8 @@ export default function AdminWebhooks({ companies, onOk, onError }: Props) {
   async function test(id: number) {
     try {
       const res = await apiPost(`/admin/webhooks/${id}/test`, {});
-      if (res.ok) onOk(`Teste enviado (HTTP ${res.status}).`);
-      else onError(new Error(res.message || `Falhou (HTTP ${res.status ?? '-'})`));
+      if (res.ok) onOk(t('whook.testSent', { status: res.status }));
+      else onError(new Error(res.message || t('whook.testFailed', { status: res.status ?? '-' })));
       if (typeof companyId === 'number') load(companyId);
     } catch (e) {
       onError(e);
@@ -77,15 +79,13 @@ export default function AdminWebhooks({ companies, onOk, onError }: Props) {
 
   return (
     <section className="card">
-      <h2>Webhooks de saída</h2>
+      <h2>{t('whook.title')}</h2>
       <p className="muted small">
-        Receba um POST assinado quando algo acontece (tarefa/ocorrência). Apenas <code>https</code> para endereços públicos
-        (endereços internos são bloqueados). A assinatura vem no header <code>X-TorqMind-Signature: sha256=HMAC</code> — valide
-        com o segredo.
+        {t('whook.descA')} <code>https</code> {t('whook.descB')} <code>X-TorqMind-Signature: sha256=HMAC</code> {t('whook.descC')}
       </p>
-      <label className="field-label">Empresa
+      <label className="field-label">{t('admin.company')}
         <select value={companyId} onChange={(e) => setCompanyId(e.target.value === '' ? '' : Number(e.target.value))}>
-          <option value="">Selecione a empresa</option>
+          <option value="">{t('akeys.selectCompany')}</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -93,26 +93,26 @@ export default function AdminWebhooks({ companies, onOk, onError }: Props) {
       </label>
       {typeof companyId === 'number' && (
         <>
-          <label className="field-label">URL (https)
+          <label className="field-label">{t('whook.urlLabel')}
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://seu-sistema.com/webhooks/torqmind"
+              placeholder={t('whook.urlPlaceholder')}
               autoCapitalize="none"
               autoComplete="off"
             />
           </label>
           <button type="button" className="btn-primary" disabled={busy || !url.trim()} onClick={create}>
-            {busy ? 'Criando…' : 'Criar webhook'}
+            {busy ? t('whook.creating') : t('whook.create')}
           </button>
           {secret && (
             <div className="alert-ok" style={{ marginTop: 10 }}>
-              <div className="muted small">Segredo (guarde agora, não será exibido de novo):</div>
+              <div className="muted small">{t('whook.secretLabel')}</div>
               <code className="secret-code">{secret}</code>
             </div>
           )}
           {hooks.length === 0 ? (
-            <p className="muted small">Nenhum webhook para esta empresa.</p>
+            <p className="muted small">{t('whook.none')}</p>
           ) : (
             <ul className="list" style={{ marginTop: 12 }}>
               {hooks.map((h) => (
@@ -120,13 +120,13 @@ export default function AdminWebhooks({ companies, onOk, onError }: Props) {
                   <div className="item-main">
                     <strong style={{ wordBreak: 'break-all' }}>{h.url}</strong>
                     <div className="muted small">
-                      {h.lastStatus ? `último: ${h.lastStatus}` : 'sem envios'}
-                      {h.failureCount > 0 ? ` · ${h.failureCount} falha(s)` : ''}
+                      {h.lastStatus ? `${t('whook.lastPrefix')} ${h.lastStatus}` : t('whook.noSends')}
+                      {h.failureCount > 0 ? ` · ${h.failureCount} ${t('whook.failures')}` : ''}
                     </div>
                   </div>
                   <span className="actions">
-                    <button type="button" className="btn-ghost" onClick={() => test(h.id)}>Testar</button>
-                    <button type="button" className="btn-ghost danger" onClick={() => remove(h.id)}>Excluir</button>
+                    <button type="button" className="btn-ghost" onClick={() => test(h.id)}>{t('whook.test')}</button>
+                    <button type="button" className="btn-ghost danger" onClick={() => remove(h.id)}>{t('whook.delete')}</button>
                   </span>
                 </li>
               ))}

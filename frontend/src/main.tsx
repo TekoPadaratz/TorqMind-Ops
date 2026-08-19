@@ -128,7 +128,7 @@ function Shell() {
           type="button"
           className="voice-fab"
           onClick={() => setVoiceOpen(true)}
-          aria-label="Comando por voz"
+          aria-label={t('shell.voiceCommand')}
         >
           🎤
         </button>

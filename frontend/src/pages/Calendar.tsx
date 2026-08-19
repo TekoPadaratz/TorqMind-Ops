@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../api';
+import { useI18n } from '../i18n';
 
 type CalRun = {
   id: number;
@@ -11,25 +12,14 @@ type CalRun = {
   assignee: string | null;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDENTE: 'Pendente',
-  EM_ANDAMENTO: 'Em andamento',
-  CONCLUIDA: 'Concluída',
-  ATRASADA: 'Atrasada',
-  REJEITADA: 'Rejeitada'
-};
-
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-];
-
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export default function Calendar() {
   const navigate = useNavigate();
+  const { t, lang } = useI18n();
+  const locale = lang === 'en' ? 'en-US' : 'pt-BR';
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -44,7 +34,7 @@ export default function Calendar() {
     setError(null);
     apiGet(`/routines/runs/calendar?from=${ymd(monthStart)}&to=${ymd(monthEnd)}`)
       .then(setRuns)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Erro ao carregar'));
+      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadError')));
   }, [monthStart, monthEnd]);
 
   const byDay = useMemo(() => {
@@ -63,23 +53,23 @@ export default function Calendar() {
 
   return (
     <div className="page">
-      <button className="btn-ghost back" onClick={() => navigate(-1)}>← Voltar</button>
+      <button className="btn-ghost back" onClick={() => navigate(-1)}>{t('common.back')}</button>
       <section className="card">
         <div className="row-between">
-          <button className="btn-ghost" type="button" onClick={() => shift(-1)} aria-label="Mês anterior">‹</button>
-          <h2>{MONTHS[cursor.getMonth()]} {cursor.getFullYear()}</h2>
-          <button className="btn-ghost" type="button" onClick={() => shift(1)} aria-label="Próximo mês">›</button>
+          <button className="btn-ghost" type="button" onClick={() => shift(-1)} aria-label={t('cal.prevMonth')}>‹</button>
+          <h2>{cursor.toLocaleDateString(locale, { month: 'long' })} {cursor.getFullYear()}</h2>
+          <button className="btn-ghost" type="button" onClick={() => shift(1)} aria-label={t('cal.nextMonth')}>›</button>
         </div>
         {error && <div className="alert-error">{error}</div>}
         {byDay.length === 0 ? (
-          <p className="muted">Nenhuma tarefa agendada neste mês.</p>
+          <p className="muted">{t('cal.empty')}</p>
         ) : (
           byDay.map(([day, list]) => {
             const d = new Date(day + 'T00:00:00');
             return (
               <div key={day} className="cal-day">
                 <h3 className="muted small">
-                  {d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                  {d.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' })}
                 </h3>
                 <ul className="list">
                   {list.map((r) => (
@@ -88,13 +78,13 @@ export default function Calendar() {
                         <strong>{r.title}</strong>
                         <div className="muted small">
                           {r.dueAt
-                            ? new Date(r.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                            ? new Date(r.dueAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
                             : '—'}
                           {r.assignee ? ` · ${r.assignee}` : ''}
                         </div>
                       </div>
                       <span className={`chip status-${r.status.toLowerCase()}`}>
-                        {STATUS_LABEL[r.status] ?? r.status}
+                        {t('status.' + r.status)}
                       </span>
                     </li>
                   ))}

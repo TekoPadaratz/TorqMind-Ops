@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { AuthImage, openAttachment } from './AuthMedia';
+import { useI18n } from '../i18n';
 
 export type UserRef = { id: string; name: string };
 export type Comment = { id: number; author: UserRef | null; body: string; createdAt: string };
@@ -28,19 +29,21 @@ type TimelineEntry =
   | { kind: 'comment'; at: string; data: Comment }
   | { kind: 'activity'; at: string; data: Activity };
 
-function activityLabel(a: Activity): string {
-  const who = a.actor?.name ?? 'Alguém';
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+function activityLabel(a: Activity, t: Translate): string {
+  const who = a.actor?.name ?? t('thread.someone');
   switch (a.type) {
     case 'CREATED':
-      return `${who} criou a tarefa`;
+      return t('thread.created', { who });
     case 'STATUS_CHANGED':
-      return `${who} alterou o status: ${a.fromStatus ?? '—'} → ${a.toStatus ?? '—'}`;
+      return t('thread.statusChanged', { who, from: a.fromStatus ?? '—', to: a.toStatus ?? '—' });
     case 'ATTACHMENT':
-      return `${who} anexou ${a.message ?? 'um arquivo'}`;
+      return t('thread.attached', { who, what: a.message ?? t('thread.aFile') });
     case 'COMMENT':
-      return `${who} comentou`;
+      return t('thread.commented', { who });
     case 'REASSIGNED':
-      return `${who} reatribuiu${a.message ? ' ' + a.message : ''}`;
+      return t('thread.reassignedBy', { who, msg: a.message ? ' ' + a.message : '' });
     default:
       return `${who}: ${a.type}`;
   }
@@ -61,6 +64,7 @@ export function Thread({
   onUpload: (file: File) => Promise<void>;
   busy: boolean;
 }) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -79,9 +83,9 @@ export function Thread({
   return (
     <>
       <section className="card">
-        <h2>Evidências</h2>
+        <h2>{t('thread.attachments')}</h2>
         {attachments.length === 0 ? (
-          <p className="muted">Nenhum anexo ainda.</p>
+          <p className="muted">{t('thread.noAttachments')}</p>
         ) : (
           <>
             {images.length > 0 && (
@@ -103,7 +107,7 @@ export function Thread({
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          📍 local
+                          📍 {t('thread.location')}
                         </a>
                       </figcaption>
                     )}
@@ -128,10 +132,10 @@ export function Thread({
 
         <div className="upload-row">
           <button type="button" className="btn-ghost" disabled={busy} onClick={() => cameraRef.current?.click()}>
-            📷 Tirar foto
+            📷 {t('occ.takePhoto')}
           </button>
           <button type="button" className="btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}>
-            📎 Anexar arquivo
+            📎 {t('occ.attachFile')}
           </button>
           <input
             ref={cameraRef}
@@ -160,23 +164,23 @@ export function Thread({
       </section>
 
       <section className="card">
-        <h2>Histórico</h2>
+        <h2>{t('thread.history')}</h2>
         {timeline.length === 0 ? (
-          <p className="muted">Sem atividade ainda.</p>
+          <p className="muted">{t('thread.noActivity')}</p>
         ) : (
           <ul className="timeline">
             {timeline.map((entry) =>
               entry.kind === 'comment' ? (
                 <li key={`c${entry.data.id}`} className="timeline-item comment">
                   <div className="timeline-head">
-                    <strong>{entry.data.author?.name ?? 'Usuário'}</strong>
+                    <strong>{entry.data.author?.name ?? t('thread.user')}</strong>
                     <span className="muted small">{new Date(entry.at).toLocaleString()}</span>
                   </div>
                   <div className="timeline-body">{entry.data.body}</div>
                 </li>
               ) : (
                 <li key={`a${entry.data.id}`} className="timeline-item activity">
-                  <div className="timeline-body muted">{activityLabel(entry.data)}</div>
+                  <div className="timeline-body muted">{activityLabel(entry.data, t)}</div>
                   <span className="muted small">{new Date(entry.at).toLocaleString()}</span>
                 </li>
               )
@@ -196,18 +200,18 @@ export function Thread({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Escreva um comentário (não altera o status)"
+            placeholder={t('thread.commentPlaceholder')}
           />
           <button className="btn-primary" type="submit" disabled={busy || !text.trim()}>
-            Comentar
+            {t('thread.comment')}
           </button>
         </form>
       </section>
 
       {preview && (
         <div className="lightbox" onClick={() => setPreview(null)} role="dialog" aria-modal="true">
-          <button type="button" className="lightbox-close" aria-label="Fechar">×</button>
-          <AuthImage url={preview} alt="Anexo" />
+          <button type="button" className="lightbox-close" aria-label={t('common.close')}>×</button>
+          <AuthImage url={preview} alt={t('thread.attachmentAlt')} />
         </div>
       )}
     </>

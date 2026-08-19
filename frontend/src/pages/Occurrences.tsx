@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiBlob, apiGet, apiPost, apiUpload } from '../api';
 import { qualityAnalysisPath } from '../fuel';
+import { useI18n } from '../i18n';
 
 type Occurrence = {
   id: number;
@@ -16,25 +17,18 @@ type Occurrence = {
   filledByName?: string;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  ABERTA: 'Aberta',
-  EM_ATENDIMENTO: 'Em atendimento',
-  AGUARDANDO_VALIDACAO: 'Aguardando validação',
-  ENCERRADA: 'Encerrada',
-  REJEITADA: 'Rejeitada'
-};
-
-const OCC_FILTERS: Array<{ value: string; label: string }> = [
-  { value: '', label: 'Todas' },
-  { value: 'ABERTA', label: 'Abertas' },
-  { value: 'EM_ATENDIMENTO', label: 'Em atendimento' },
-  { value: 'AGUARDANDO_VALIDACAO', label: 'Aguardando validação' },
-  { value: 'ENCERRADA', label: 'Encerradas' },
-  { value: 'REJEITADA', label: 'Rejeitadas' }
+const OCC_FILTERS: Array<{ value: string; key: string }> = [
+  { value: '', key: 'occ.filter.all' },
+  { value: 'ABERTA', key: 'occ.filter.open' },
+  { value: 'EM_ATENDIMENTO', key: 'occ.filter.inService' },
+  { value: 'AGUARDANDO_VALIDACAO', key: 'occ.filter.awaiting' },
+  { value: 'ENCERRADA', key: 'occ.filter.closed' },
+  { value: 'REJEITADA', key: 'occ.filter.rejected' }
 ];
 
 export default function Occurrences() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<Occurrence[]>([]);
@@ -51,7 +45,7 @@ export default function Occurrences() {
       const q = status ? `?status=${status}` : '';
       setItems(await apiGet(`/occurrences${q}`));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar');
+      setError(e instanceof Error ? e.message : t('common.loadError'));
     }
   }
 
@@ -82,7 +76,7 @@ export default function Occurrences() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao exportar');
+      setError(e instanceof Error ? e.message : t('routines.err.export'));
     }
   }
 
@@ -104,7 +98,7 @@ export default function Occurrences() {
       setPendingFiles([]);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao abrir ocorrência');
+      setError(e instanceof Error ? e.message : t('occ.err.create'));
     } finally {
       setBusy(false);
     }
@@ -115,27 +109,27 @@ export default function Occurrences() {
       {error && <div className="alert-error">{error}</div>}
 
       <section className="card">
-        <h2>Nova ocorrência</h2>
+        <h2>{t('occ.new')}</h2>
         <button type="button" className="btn-primary" onClick={() => navigate(qualityAnalysisPath())}>
-          Análise de qualidade no recebimento
+          {t('occ.qualityAnalysis')}
         </button>
         <form onSubmit={create} className="stack" style={{ marginTop: 12 }}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" required />
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descreva o problema" required />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('occ.title.placeholder')} required />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('occ.desc.placeholder')} required />
           <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-            <option value="BAIXA">Baixa</option>
-            <option value="MEDIA">Média</option>
-            <option value="ALTA">Alta</option>
-            <option value="CRITICA">Crítica</option>
+            <option value="BAIXA">{t('prio.BAIXA')}</option>
+            <option value="MEDIA">{t('prio.MEDIA')}</option>
+            <option value="ALTA">{t('prio.ALTA')}</option>
+            <option value="CRITICA">{t('prio.CRITICA')}</option>
           </select>
 
-          <label className="field-label">Evidências (opcional)</label>
+          <label className="field-label">{t('occ.evidence')}</label>
           <div className="upload-row">
             <button type="button" className="btn-ghost" disabled={busy} onClick={() => cameraRef.current?.click()}>
-              Tirar foto
+              {t('occ.takePhoto')}
             </button>
             <button type="button" className="btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}>
-              Anexar arquivo
+              {t('occ.attachFile')}
             </button>
             <input
               ref={cameraRef}
@@ -165,7 +159,7 @@ export default function Occurrences() {
                 <li key={`${f.name}-${i}`}>
                   <span className="pending-name">{f.name}</span>
                   <button type="button" className="btn-ghost danger" disabled={busy} onClick={() => removePending(i)}>
-                    Remover
+                    {t('common.remove')}
                   </button>
                 </li>
               ))}
@@ -173,15 +167,15 @@ export default function Occurrences() {
           )}
 
           <button type="submit" className="btn-primary" disabled={busy}>
-            {busy ? 'Abrindo…' : 'Abrir ocorrência'}
+            {busy ? t('occ.opening') : t('occ.open')}
           </button>
         </form>
       </section>
 
       <section className="card">
         <div className="row-between">
-          <h2>Ocorrências</h2>
-          <button type="button" className="btn-ghost" onClick={exportCsv}>Exportar CSV</button>
+          <h2>{t('occ.list')}</h2>
+          <button type="button" className="btn-ghost" onClick={exportCsv}>{t('routines.exportCsv')}</button>
         </div>
         <div className="filter-row">
           {OCC_FILTERS.map((f) => (
@@ -191,12 +185,12 @@ export default function Occurrences() {
               className={`filter-chip ${status === f.value ? 'active' : ''}`}
               onClick={() => setStatus(f.value)}
             >
-              {f.label}
+              {t(f.key)}
             </button>
           ))}
         </div>
         {items.length === 0 ? (
-          <p className="muted">Nenhuma ocorrência neste filtro.</p>
+          <p className="muted">{t('occ.noOccurrences')}</p>
         ) : (
           <ul className="list">
             {items.map((item) => (
@@ -207,10 +201,10 @@ export default function Occurrences() {
                     {[item.stationName, item.collectionDate, item.filledByName].filter(Boolean).join(' · ') || item.description}
                   </div>
                   <div className="chips">
-                    <span className={`chip status-${item.status.toLowerCase()}`}>{STATUS_LABEL[item.status] ?? item.status}</span>
-                    {item.kind === 'FUEL_QUALITY_RECEIPT' && <span className="chip">Análise de qualidade</span>}
+                    <span className={`chip status-${item.status.toLowerCase()}`}>{t('ostatus.' + item.status)}</span>
+                    {item.kind === 'FUEL_QUALITY_RECEIPT' && <span className="chip">{t('occ.qualityChip')}</span>}
                     {item.fuelLabel && <span className="chip">{item.fuelLabel}</span>}
-                    {item.kind !== 'FUEL_QUALITY_RECEIPT' && <span className={`chip prio-${item.priority.toLowerCase()}`}>{item.priority}</span>}
+                    {item.kind !== 'FUEL_QUALITY_RECEIPT' && <span className={`chip prio-${item.priority.toLowerCase()}`}>{t('prio.' + item.priority)}</span>}
                   </div>
                 </div>
                 <span className="chevron">›</span>

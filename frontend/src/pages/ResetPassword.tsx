@@ -3,9 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiPost } from '../api';
 import PasswordField from '../components/PasswordField';
 import { passwordConfirmError } from '../password';
+import { useI18n } from '../i18n';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [password, setPassword] = useState('');
@@ -18,7 +20,7 @@ export default function ResetPassword() {
     e.preventDefault();
     setError(null);
     if (password.length < 8) {
-      setError('A senha deve ter ao menos 8 caracteres.');
+      setError(t('reset.minLen'));
       return;
     }
     const mismatch = passwordConfirmError(password, confirm);
@@ -32,7 +34,7 @@ export default function ResetPassword() {
       setOk(true);
       setTimeout(() => navigate('/login'), 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível redefinir a senha.');
+      setError(err instanceof Error ? err.message : t('reset.err'));
     } finally {
       setLoading(false);
     }
@@ -43,36 +45,36 @@ export default function ResetPassword() {
       <div className="login-card">
         <div className="brand">
           <div className="brand-mark">TM</div>
-          <h1>Redefinir senha</h1>
+          <h1>{t('reset.title')}</h1>
         </div>
         {!token ? (
-          <div className="alert-error">Link inválido ou incompleto.</div>
+          <div className="alert-error">{t('reset.invalidLink')}</div>
         ) : ok ? (
-          <div className="alert-ok">Senha redefinida! Redirecionando para o login...</div>
+          <div className="alert-ok">{t('reset.done')}</div>
         ) : (
           <form onSubmit={onSubmit}>
             <label>
-              Nova senha
+              {t('account.pwd.new')}
               <PasswordField
                 value={password}
                 onChange={setPassword}
                 autoComplete="new-password"
-                placeholder="mín. 8, letras e números"
+                placeholder={t('account.pwd.hint')}
                 required
               />
             </label>
             <label>
-              Confirmar senha
+              {t('reset.confirm')}
               <PasswordField value={confirm} onChange={setConfirm} autoComplete="new-password" required />
             </label>
             {error && <div className="alert-error">{error}</div>}
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Salvando...' : 'Redefinir senha'}
+              {loading ? t('account.saving') : t('reset.submit')}
             </button>
           </form>
         )}
         <p className="muted small">
-          <a href="/login">Voltar ao login</a>
+          <a href="/login">{t('reset.backToLogin')}</a>
         </p>
       </div>
     </div>
