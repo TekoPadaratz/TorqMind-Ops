@@ -52,11 +52,13 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
 
         if (looksLikeStatusQuery(low)) {
             fillStatusQuery(intent, t, low);
+        } else if (looksLikeListQuery(low)) {
+            fillListQuery(intent, low);
         } else if (looksLikeDelete(low)) {
             fillDelete(intent, t);
         } else if (looksLikeQualityAnalysis(low)) {
             fillQualityAnalysis(intent, low);
-        } else if (containsAny(low, "ocorrencia", "ocorrência")) {
+        } else if (mentionsOccurrence(low)) {
             fillOccurrence(intent, t, low);
         } else if (wantsCreateTask(low)) {
             fillCreateTask(intent, t, low);
@@ -175,12 +177,8 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.setScheduledDate(today.plusDays(1).toString());
         } else if (low.contains("hoje")) {
             intent.setScheduledDate(today.toString());
-        } else if ("WEEKLY".equals(intent.getRecurrence())) {
-            Integer wd = VoiceDateTimeNormalizer.weekdayIso(low);
-            if (wd != null) {
-                intent.setScheduledDate(VoiceDateTimeNormalizer.parseDate("segunda", today).toString());
-            }
         }
+        // Rotinas recorrentes (WEEKLY/DAILY/MONTHLY/CUSTOM) nao tem data unica: a regra de recorrencia define as datas.
 
         List<String> times = extractTimes(low);
         java.util.List<Integer> named = VoiceDateTimeNormalizer.namedHoursInOrder(low);
@@ -259,6 +257,45 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.setScheduledDate(today.minusDays(1).toString());
         } else {
             intent.setScheduledDate(today.toString());
+        }
+    }
+
+    private static boolean mentionsOccurrence(String low) {
+        return low.contains("ocorrencia") || low.contains("ocorrência");
+    }
+
+    // Consulta/checagem ("verifique se tem ocorrencias pendentes", "quais tarefas atrasadas") -> listar, nunca criar.
+    private static boolean looksLikeListQuery(String low) {
+        boolean cue = containsAny(low,
+                "verifique", "verificar", "confira", "conferir", "cheque", "checar",
+                "mostre", "mostra", "mostrar", "liste", "listar", "quais", "quantas", "quantos",
+                "tem alguma", "tem algum", "há alguma", "ha alguma", "existe", "existem",
+                "o que tem", "o que esta", "o que está", "o que falta", "quero ver", "ver as", "veja",
+                "tem ocorr", "tem tarefa", "tem rotina");
+        boolean noun = containsAny(low,
+                "ocorrencia", "ocorrência", "pendente", "aberta", "aberto", "atrasada", "atrasado",
+                "tarefa", "rotina");
+        boolean create = containsAny(low,
+                "criar", "crie", "cadastr", "registrar", "registre", "abrir uma", "abra uma",
+                "abre uma", "nova ", "novo ", "informando que");
+        return cue && noun && !create;
+    }
+
+    private static void fillListQuery(VoiceIntent intent, String low) {
+        if (mentionsOccurrence(low)) {
+            intent.setAction("LIST_OCCURRENCES");
+            if (containsAny(low, "aberta", "abertas", "aberto", "pendente", "pendentes", "em aberto")) {
+                intent.setRequestedStatus("ABERTA");
+            }
+            return;
+        }
+        intent.setAction("LIST_TASKS");
+        if (low.contains("atrasad")) {
+            intent.setRequestedStatus("ATRASADA");
+        } else if (low.contains("pendent")) {
+            intent.setRequestedStatus("PENDENTE");
+        } else if (low.contains("hoje")) {
+            intent.setRequestedStatus("HOJE");
         }
     }
 

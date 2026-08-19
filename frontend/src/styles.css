@@ -195,7 +195,23 @@ input[type="radio"] {
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 0.9rem;
+  margin-bottom: 12px;
 }
+
+/* Botao de acao solto dentro de um card (ex.: baixar relatorio PDF, exportar) ganha respiro e nao cola no conteudo acima. */
+.card > .btn-primary,
+.card > .btn-ghost {
+  margin-top: 10px;
+}
+@media (max-width: 520px) {
+  .card > .btn-ghost { width: 100%; }
+}
+
+/* Login: empilhamento com espacamento uniforme; "esqueci minha senha" deixa de ficar grudado/estreito. */
+.login-card form { display: flex; flex-direction: column; gap: 12px; }
+.login-card form label { margin-bottom: 0; }
+.login-card form .btn-ghost { width: 100%; }
+.login-card .build-tag { margin-top: 18px; text-align: center; }
 
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .bell {

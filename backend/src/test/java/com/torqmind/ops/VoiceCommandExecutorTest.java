@@ -7,6 +7,8 @@ import com.torqmind.ops.application.tenant.TenantResolver;
 import com.torqmind.ops.application.voice.VoiceCommandExecutor;
 import com.torqmind.ops.application.voice.VoiceIntent;
 import com.torqmind.ops.application.voice.VoiceResolved;
+import com.torqmind.ops.domain.occurrence.Occurrence;
+import com.torqmind.ops.domain.ops.OccurrenceStatus;
 import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.routine.RoutineRun;
 import com.torqmind.ops.domain.routine.RoutineTemplate;
@@ -147,6 +149,35 @@ class VoiceCommandExecutorTest {
         AppUserPrincipal me = new AppUserPrincipal(UUID.randomUUID(), "op", "OPERATOR", 1L, 2L);
         Map<String, Object> result = executor.execute(me, intent, resolved);
         Assertions.assertTrue(String.valueOf(result.get("spoken")).toLowerCase().contains("permiss"));
+    }
+
+    @Test
+    void listOccurrencesSpeaksCountAndNavigates() {
+        OccurrenceService occurrenceService = Mockito.mock(OccurrenceService.class);
+        TenantResolver tenantResolver = Mockito.mock(TenantResolver.class);
+        Mockito.when(tenantResolver.resolveListCompanyId(Mockito.any(), Mockito.any())).thenReturn(1L);
+        Mockito.when(tenantResolver.branchFilterOrNull(Mockito.any())).thenReturn(null);
+        Occurrence o1 = Mockito.mock(Occurrence.class);
+        Mockito.when(o1.getId()).thenReturn(11L);
+        Mockito.when(o1.getTitle()).thenReturn("Vazamento na bomba 3");
+        Mockito.when(o1.getStatus()).thenReturn(OccurrenceStatus.ABERTA);
+        Mockito.when(occurrenceService.list(Mockito.eq(1L), Mockito.isNull(), Mockito.eq(OccurrenceStatus.ABERTA)))
+                .thenReturn(java.util.List.of(o1));
+        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+                Mockito.mock(RoutineService.class),
+                occurrenceService,
+                Mockito.mock(TaskDetailService.class),
+                tenantResolver,
+                Mockito.mock(RoutineRunRepository.class),
+                Mockito.mock(RoutineTemplateRepository.class)
+        );
+        VoiceIntent intent = new VoiceIntent();
+        intent.setAction("LIST_OCCURRENCES");
+        intent.setRequestedStatus("ABERTA");
+        AppUserPrincipal me = new AppUserPrincipal(UUID.randomUUID(), "op", "MANAGER", 1L, 2L);
+        Map<String, Object> result = executor.execute(me, intent, new VoiceResolved());
+        Assertions.assertEquals("/occurrences", result.get("navigateTo"));
+        Assertions.assertTrue(String.valueOf(result.get("spoken")).toLowerCase().contains("ocorrência"));
     }
 
     @Test

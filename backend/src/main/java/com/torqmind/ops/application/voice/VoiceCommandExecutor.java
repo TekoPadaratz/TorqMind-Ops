@@ -61,6 +61,7 @@ public class VoiceCommandExecutor {
             case "ADD_COMMENT" -> addComment(me, intent, resolved);
             case "OPEN_TASK" -> open(resolved);
             case "LIST_TASKS" -> list(me, intent);
+            case "LIST_OCCURRENCES" -> listOccurrences(me, intent);
             case "QUERY_TASK" -> queryTask(intent, resolved);
             case "DELETE_TASK" -> deleteTask(me, intent, resolved);
             default -> throw new IllegalArgumentException("Ação de voz não suportada.");
@@ -91,6 +92,8 @@ public class VoiceCommandExecutor {
             case "OPEN_TASK" -> "Abrir \"" + nvl(resolved.getTaskTitle(), "a tarefa") + "\".";
             case "LIST_TASKS" -> "Listar tarefas"
                     + (intent.getRequestedStatus() != null ? " (" + intent.getRequestedStatus() + ")" : "") + ".";
+            case "LIST_OCCURRENCES" -> "Listar ocorrências"
+                    + ("ABERTA".equals(intent.getRequestedStatus()) ? " abertas" : "") + ".";
             case "QUERY_TASK" -> "Consultar status de \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma tarefa")) + "\".";
             case "DELETE_TASK" -> "Excluir a rotina \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma rotina")) + "\".";
             default -> "Confirmar comando.";
@@ -103,7 +106,6 @@ public class VoiceCommandExecutor {
         if ("CREATE_TASK".equals(action)) {
             if (blank(intent.getTitle())) missing.add("title");
             if (blank(intent.getStartTime())) missing.add("startTime");
-            if (blank(intent.getDueTime())) missing.add("dueTime");
             if ("ONCE".equalsIgnoreCase(nvl(intent.getRecurrence(), "ONCE")) && blank(intent.getScheduledDate())) {
                 missing.add("scheduledDate");
             }
@@ -146,7 +148,7 @@ public class VoiceCommandExecutor {
         Long companyId = tenantResolver.resolveCompanyForCreate(me, resolved.getCompanyId());
         Long branchId = tenantResolver.resolveBranchForCreate(me, resolved.getBranchId());
         LocalTime start = VoiceDateTimeNormalizer.parseTime(intent.getStartTime());
-        LocalTime due = VoiceDateTimeNormalizer.parseTime(intent.getDueTime());
+        LocalTime due = blank(intent.getDueTime()) ? start : VoiceDateTimeNormalizer.parseTime(intent.getDueTime());
         LocalDate date = blank(intent.getScheduledDate())
                 ? null
                 : VoiceDateTimeNormalizer.parseDate(intent.getScheduledDate(), LocalDate.now(VoiceDateTimeNormalizer.ZONE));
@@ -354,6 +356,44 @@ public class VoiceCommandExecutor {
         out.put("message", answer);
         out.put("spoken", answer);
         out.put("navigateTo", "/routines");
+        return out;
+    }
+
+    private Map<String, Object> listOccurrences(AppUserPrincipal me, VoiceIntent intent) {
+        Long cid = tenantResolver.resolveListCompanyId(me, null);
+        Long bid = tenantResolver.branchFilterOrNull(me);
+        OccurrenceStatus status = "ABERTA".equals(intent.getRequestedStatus()) ? OccurrenceStatus.ABERTA : null;
+        List<Occurrence> occurrences = occurrenceService.list(cid, bid, status);
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Occurrence occ : occurrences.stream().limit(20).toList()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", occ.getId());
+            row.put("title", occ.getTitle());
+            row.put("status", occ.getStatus().name());
+            items.add(row);
+        }
+        String label = status != null ? " aberta(s)" : "";
+        String spoken;
+        if (items.isEmpty()) {
+            spoken = "Nenhuma ocorrência" + label + " no momento.";
+        } else {
+            StringBuilder sb = new StringBuilder("Você tem " + items.size() + " ocorrência"
+                    + (items.size() > 1 ? "s" : "") + label + ".");
+            int n = Math.min(3, items.size());
+            for (int idx = 0; idx < n; idx++) {
+                Object ti = items.get(idx).get("title");
+                if (ti != null) {
+                    sb.append(idx == 0 ? " " : ", ").append(ti);
+                }
+            }
+            spoken = sb.toString();
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "OCCURRENCE_LIST");
+        out.put("items", items);
+        out.put("message", spoken);
+        out.put("spoken", spoken);
+        out.put("navigateTo", "/occurrences");
         return out;
     }
 

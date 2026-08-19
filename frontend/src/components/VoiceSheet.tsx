@@ -31,6 +31,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
   const stoppingRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const stopFallbackRef = useRef<number | null>(null);
+  const autoStopRef = useRef<number | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -83,9 +84,26 @@ export default function VoiceSheet({ open, onClose }: Props) {
     stopFallbackRef.current = null;
   }
 
+  function clearAutoStop() {
+    if (autoStopRef.current) window.clearTimeout(autoStopRef.current);
+    autoStopRef.current = null;
+  }
+
+  // Auto-envia quando a pessoa para de falar (silencio ~1,5s), sem precisar tocar em Parar.
+  function scheduleAutoStop() {
+    clearAutoStop();
+    if (stoppingRef.current || !recognizedTextRef.current) return;
+    autoStopRef.current = window.setTimeout(() => {
+      if (!stoppingRef.current && recognitionRef.current) {
+        stopRecording();
+      }
+    }, 1500);
+  }
+
   function hardStopRecognition() {
     clearTimer();
     clearStopFallback();
+    clearAutoStop();
     const recognition = recognitionRef.current;
     recognitionRef.current = null;
     if (!recognition) return;
@@ -110,7 +128,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
     setBusy(false);
     setUi(status?.enabled === false ? 'error' : 'consent');
     setMessage(browserSpeechRecognitionSupported()
-      ? 'Toque em Falar. Quando terminar, toque em Parar uma vez.'
+      ? 'Toque em Falar e diga o comando. Eu envio quando você parar de falar.'
       : 'Digite o comando abaixo.');
   }
 
@@ -146,6 +164,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
         }
         recognizedTextRef.current = text.trim();
         setTranscript(recognizedTextRef.current);
+        scheduleAutoStop();
       };
 
       recognition.onerror = (event) => {
@@ -161,21 +180,24 @@ export default function VoiceSheet({ open, onClose }: Props) {
       };
 
       recognition.onend = () => {
-        // Se o browser encerrar sozinho sem o usuário tocar em Parar, volta ao consentimento.
+        // Se o browser encerrar sozinho (silencio no celular), envia o que foi reconhecido.
         if (recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
         clearTimer();
+        clearAutoStop();
         if (stoppingRef.current) return;
+        if (recognizedTextRef.current) {
+          void sendRecognizedText(recognizedTextRef.current);
+          return;
+        }
         setUi('consent');
-        setMessage(recognizedTextRef.current
-          ? 'Reconhecimento pausado. Toque em Falar de novo ou envie o texto.'
-          : 'Toque em Falar. Quando terminar, toque em Parar uma vez.');
+        setMessage('Toque em Falar e diga o comando. Eu envio quando você parar de falar.');
       };
 
       recognitionRef.current = recognition;
       recognition.start();
       setUi('recording');
-      setMessage('Ouvindo… toque em Parar quando terminar.');
+      setMessage('Pode falar. Quando parar de falar, eu envio sozinho.');
       timerRef.current = window.setInterval(() => {
         setSeconds((s) => {
           const next = s + 1;
@@ -210,6 +232,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
     if (stoppingRef.current) return;
     if (!recognitionRef.current && ui !== 'recording') return;
 
+    clearAutoStop();
     stoppingRef.current = true;
     setStopping(true);
     clearTimer();
@@ -289,6 +312,26 @@ export default function VoiceSheet({ open, onClose }: Props) {
     }
   }
 
+  function voiceQuestion(d: VoiceDraft): string {
+    const amb = d.intent?.ambiguities?.[0];
+    if (amb) {
+      if (amb.field === 'targetUserReference') return 'Para qual pessoa?';
+      if (amb.field === 'branchReference') return 'Qual filial?';
+      if (amb.field === 'targetSectorReference') return 'Qual setor?';
+      return `Qual ${labelField(amb.field)}?`;
+    }
+    const missing = d.intent?.missingFields || [];
+    if (missing.includes('title')) return 'Qual o título da tarefa?';
+    if (missing.includes('targetUserReference')) return 'Para qual pessoa?';
+    if (missing.includes('targetSectorReference')) return 'Qual setor?';
+    if (missing.includes('branchReference')) return 'Qual filial?';
+    if (missing.includes('startTime')) return 'Que horas deve começar?';
+    if (missing.includes('scheduledDate')) return 'Para qual data?';
+    if (missing.includes('comment')) return 'Qual comentário devo registrar?';
+    if (missing.includes('photo')) return 'Preciso de uma foto para concluir. Toque para tirar.';
+    return d.previewText || 'Preciso de mais uma informação.';
+  }
+
   function applyDraft(d: VoiceDraft) {
     setDraft(d);
     if (d.status === 'FAILED' || d.status === 'EXPIRED') {
@@ -298,7 +341,9 @@ export default function VoiceSheet({ open, onClose }: Props) {
     }
     if (d.status === 'NEEDS_INPUT') {
       setUi('needs-input');
-      setMessage(d.previewText || 'Preciso de mais informação.');
+      const question = voiceQuestion(d);
+      setMessage(question);
+      speak(question);
       return;
     }
     if (d.status === 'READY_FOR_CONFIRMATION') {
@@ -466,7 +511,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
         {ui === 'recording' && (
           <div className="voice-actions">
             <button type="button" className="btn-primary" onClick={stopRecording} disabled={stopping}>
-              Parar
+              Enviar agora
             </button>
             <button type="button" className="btn-ghost danger" onClick={cancelRecording}>Cancelar</button>
           </div>
