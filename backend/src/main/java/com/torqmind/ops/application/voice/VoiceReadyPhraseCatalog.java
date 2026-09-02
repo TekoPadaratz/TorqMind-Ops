@@ -57,10 +57,43 @@ public class VoiceReadyPhraseCatalog {
         if (transcript == null || transcript.isBlank()) {
             return Optional.empty();
         }
-        Map<String, Object> row = exact.get(VoicePhraseNormalizer.normalize(transcript));
-        if (row == null) {
-            return Optional.empty();
+        for (String variant : phraseVariants(transcript)) {
+            Map<String, Object> row = exact.get(variant);
+            if (row != null) {
+                return Optional.of(buildIntent(transcript, row));
+            }
         }
+        return Optional.empty();
+    }
+
+    private static List<String> phraseVariants(String transcript) {
+        String normalized = VoicePhraseNormalizer.normalize(transcript);
+        java.util.LinkedHashSet<String> variants = new java.util.LinkedHashSet<>();
+        variants.add(normalized);
+        if (normalized.endsWith("?")) {
+            variants.add(normalized.substring(0, normalized.length() - 1).trim());
+        }
+        if (normalized.endsWith(".")) {
+            variants.add(normalized.substring(0, normalized.length() - 1).trim());
+        }
+        for (String prefix : List.of(
+                "por favor", "por gentileza", "favor", "oi", "ola", "olá", "ei",
+                "e ai", "e aí", "beleza", "ok", "então", "entao"
+        )) {
+            if (normalized.equals(prefix)) {
+                continue;
+            }
+            if (normalized.startsWith(prefix)) {
+                String rest = normalized.substring(prefix.length()).replaceFirst("^[\\s,;:.-]+", "").trim();
+                if (!rest.isBlank()) {
+                    variants.add(rest);
+                }
+            }
+        }
+        return List.copyOf(variants);
+    }
+
+    private VoiceIntent buildIntent(String transcript, Map<String, Object> row) {
         VoiceIntent intent = new VoiceIntent();
         intent.setSchemaVersion(VoiceIntent.SCHEMA_VERSION);
         intent.setTranscript(transcript);
@@ -70,7 +103,7 @@ public class VoiceReadyPhraseCatalog {
         if ("DELETE_TASK".equals(intent.getAction()) || "REJECT_TASK".equals(intent.getAction())) {
             intent.setRequiresConfirmation(true);
         }
-        return Optional.of(intent);
+        return intent;
     }
 
     public int size() {

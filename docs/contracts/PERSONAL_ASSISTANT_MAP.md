@@ -58,7 +58,7 @@ Quando ligado, grava em `voice_phrase_learnings` após confirmação. **Recomend
 
 ### Catálogo de conversas prontas
 
-Arquivo curado `backend/src/main/resources/voice/ready_phrases.json` (~70 frases) — **não é aprendizado**; match exato antes do parser regex. Testes: `VoiceReadyPhraseCatalogTest`.
+Arquivo curado `backend/src/main/resources/voice/ready_phrases.json` (~**134 frases**) — **não é aprendizado**; match exato (com strip de prefixos educados: "por favor", "oi", etc.) antes do parser regex. Testes: `VoiceReadyPhraseCatalogTest`.
 
 ### Slots comuns
 

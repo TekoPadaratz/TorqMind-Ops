@@ -204,14 +204,17 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
         return containsAny(low,
                 "como esta a operacao", "como está a operação", "resumo do dia", "panorama do dia",
                 "situacao de hoje", "situação de hoje", "como estamos hoje", "status da operacao",
-                "status da operação", "resumo operacional");
+                "status da operação", "resumo operacional", "como ta o posto", "como tá o posto",
+                "mapa da operacao", "mapa da operação", "situacao geral", "situação geral",
+                "panorama da filial", "status geral");
     }
 
     private static boolean looksLikeMyTasks(String low) {
         return containsAny(low,
                 "minhas tarefas", "minhas rotinas", "minhas pendencias", "minhas pendências",
                 "o que tenho pra fazer", "o que tenho para fazer", "meu servico", "meu serviço",
-                "meus checklists", "minha agenda de hoje");
+                "meus checklists", "minha agenda de hoje", "minha fila", "meu trabalho de hoje",
+                "o que ficou pra mim");
     }
 
     private static boolean looksLikeStartOccurrence(String low) {
@@ -221,7 +224,8 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
 
     private static boolean looksLikeCloseOccurrence(String low) {
         return (mentionsOccurrence(low) || low.contains("chamado"))
-                && containsAny(low, "encerr", "finaliz", "fechar", "concluir o chamado", "concluir a ocorrencia", "concluir a ocorrência");
+                && containsAny(low, "encerr", "finaliz", "fechar", "concluir o chamado",
+                "concluir a ocorrencia", "concluir a ocorrência", "dar baixa no chamado", "dar baixa");
     }
 
     private static void fillOccurrenceRef(VoiceIntent intent, String t, VoiceContext context) {
@@ -269,6 +273,18 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.setTitle("Conferência do estoque");
         } else if (low.contains("aferi")) {
             intent.setTitle("Aferição das bombas");
+        } else if (low.contains("caixa")) {
+            intent.setTitle("Fechamento de caixa");
+        } else if (low.contains("pista")) {
+            intent.setTitle("Limpeza da pista");
+        } else if (low.contains("bomba")) {
+            intent.setTitle("Conferência de bomba");
+        } else if (low.contains("tanque")) {
+            intent.setTitle("Medição de tanque");
+        } else if (low.contains("troco")) {
+            intent.setTitle("Conferência de troco");
+        } else if (low.contains("lavagem")) {
+            intent.setTitle("Lavagem da área de abastecimento");
         }
 
         if (low.contains("setor")) {
@@ -503,6 +519,18 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.setTaskReference("aferição");
         } else if (low.contains("extintor")) {
             intent.setTaskReference("extintores");
+        } else if (low.contains("caixa")) {
+            intent.setTaskReference("caixa");
+        } else if (low.contains("pista")) {
+            intent.setTaskReference("pista");
+        } else if (low.contains("bomba")) {
+            intent.setTaskReference("bomba");
+        } else if (low.contains("tanque")) {
+            intent.setTaskReference("tanque");
+        } else if (low.contains("troco")) {
+            intent.setTaskReference("troco");
+        } else if (low.contains("lavagem")) {
+            intent.setTaskReference("lavagem");
         } else if (low.contains("vence hoje") || low.contains("vence")) {
             intent.setTaskReference(t);
         } else {
@@ -523,7 +551,8 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
         }
         boolean noun = containsAny(low, "tarefa", "rotina", "checklist", "servico", "serviço");
         boolean verb = containsAny(low, "criar", "crie", "cria ", "cadastr",
-                "registrar", "registre", "agendar", "agende", "montar", "monte", "nova ", "novo ");
+                "registrar", "registre", "agendar", "agende", "montar", "monte", "programar", "programa ",
+                "nova ", "novo ");
         return noun && verb;
     }
 

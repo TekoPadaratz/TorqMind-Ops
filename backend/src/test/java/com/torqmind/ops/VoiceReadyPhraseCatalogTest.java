@@ -23,8 +23,15 @@ class VoiceReadyPhraseCatalogTest {
     }
 
     @Test
-    void catalogLoadsAtLeastSixtyPhrases() {
-        Assertions.assertTrue(catalog.size() >= 60, "catálogo deve ter dezenas de frases prontas");
+    void catalogLoadsAtLeastOneHundredTwentyPhrases() {
+        Assertions.assertTrue(catalog.size() >= 120, "catálogo deve ter centenas de frases prontas");
+    }
+
+    @Test
+    void politePrefixStillMatchesCatalog() {
+        var intent = catalog.match("por favor, resumo do dia");
+        Assertions.assertTrue(intent.isPresent());
+        Assertions.assertEquals("SUMMARY_TODAY", intent.get().getAction());
     }
 
     @Test
