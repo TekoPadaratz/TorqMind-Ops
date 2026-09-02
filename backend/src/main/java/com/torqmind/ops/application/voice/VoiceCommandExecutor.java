@@ -64,6 +64,7 @@ public class VoiceCommandExecutor {
             case "LIST_OCCURRENCES" -> listOccurrences(me, intent);
             case "QUERY_TASK" -> queryTask(intent, resolved);
             case "DELETE_TASK" -> deleteTask(me, intent, resolved);
+            case "HELP" -> help(me);
             default -> throw new IllegalArgumentException("Ação de voz não suportada.");
         };
     }
@@ -96,6 +97,7 @@ public class VoiceCommandExecutor {
                     + ("ABERTA".equals(intent.getRequestedStatus()) ? " abertas" : "") + ".";
             case "QUERY_TASK" -> "Consultar status de \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma tarefa")) + "\".";
             case "DELETE_TASK" -> "Excluir a rotina \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma rotina")) + "\".";
+            case "HELP" -> "Mostrar o que a assistente pode fazer.";
             default -> "Confirmar comando.";
         };
     }
@@ -127,6 +129,11 @@ public class VoiceCommandExecutor {
         }
         if ("REJECT_TASK".equals(action) && blank(intent.getComment())) {
             missing.add("comment");
+        }
+        if ("HELP".equals(action)) {
+            intent.setMissingFields(List.of());
+            intent.setAmbiguities(List.of());
+            return;
         }
         if ("COMPLETE_TASK".equals(action) && resolved.getRunId() != null) {
             RoutineRun run = runRepository.findById(resolved.getRunId()).orElse(null);
@@ -452,6 +459,29 @@ public class VoiceCommandExecutor {
         out.put("message", spoken);
         out.put("spoken", spoken);
         out.put("navigateTo", "/routines");
+        return out;
+    }
+
+    private Map<String, Object> help(AppUserPrincipal me) {
+        String role = me == null ? "" : nvl(me.role(), "");
+        String spoken = """
+                Sou a assistente do TorqMind Ops. Posso criar tarefas e ocorrências, iniciar, concluir ou rejeitar trabalhos, \
+                listar pendências e atrasos, consultar se alguém concluiu uma rotina, abrir análise de combustível e excluir uma rotina específica. \
+                Fale naturalmente em português. Se faltar algum detalhe, eu pergunto. \
+                Para excluir ou rejeitar, peço confirmação antes.""";
+        if ("OPERATOR".equalsIgnoreCase(role)) {
+            spoken = spoken + " Como funcionário, você vê e age nas tarefas da sua filial.";
+        } else if ("MANAGER".equalsIgnoreCase(role)) {
+            spoken = spoken + " Como gerente, você gerencia a operação da sua filial.";
+        } else if ("OWNER".equalsIgnoreCase(role)) {
+            spoken = spoken + " Como dono da empresa, você enxerga todas as filiais.";
+        } else if ("MASTER".equalsIgnoreCase(role)) {
+            spoken = spoken + " Como administrador, você tem visão global.";
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "HELP");
+        out.put("message", spoken);
+        out.put("spoken", spoken);
         return out;
     }
 

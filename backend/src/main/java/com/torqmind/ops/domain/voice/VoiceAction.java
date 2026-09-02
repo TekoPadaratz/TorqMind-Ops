@@ -12,5 +12,6 @@ public enum VoiceAction {
     LIST_TASKS,
     LIST_OCCURRENCES,
     QUERY_TASK,
-    DELETE_TASK
+    DELETE_TASK,
+    HELP
 }

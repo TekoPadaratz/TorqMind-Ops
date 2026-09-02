@@ -119,13 +119,22 @@ public class VoiceDraftService {
     }
 
     @Transactional
-    public Map<String, Object> patch(AppUserPrincipal me, UUID id, Map<String, String> selectedOptions, VoiceIntent fields) {
+    public Map<String, Object> patch(
+            AppUserPrincipal me,
+            UUID id,
+            Map<String, String> selectedOptions,
+            VoiceIntent fields,
+            String transcript
+    ) {
         VoiceDraft draft = loadOwn(me, id);
         expireIfNeeded(draft);
         if (draft.getStatus() == VoiceDraftStatus.CONFIRMED || draft.getStatus() == VoiceDraftStatus.CANCELLED) {
             throw new IllegalArgumentException("Este comando já foi encerrado.");
         }
         VoiceIntent intent = readIntent(draft);
+        if (transcript != null && !transcript.isBlank()) {
+            VoiceConversationResolver.applySpokenAnswer(intent, VoiceIntentSanitizer.sanitize(transcript.trim()));
+        }
         if (selectedOptions != null) {
             selectedOptions.forEach((field, key) -> resolver.applySelection(intent, field, key));
         }

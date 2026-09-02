@@ -50,7 +50,11 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.getWarnings().add("Trechos de instrução foram ignorados.");
         }
 
-        if (looksLikeStatusQuery(low)) {
+        if (looksLikeHelp(low)) {
+            intent.setAction("HELP");
+            intent.setRequiresConfirmation(false);
+            intent.setConfidence(0.95);
+        } else if (looksLikeStatusQuery(low)) {
             fillStatusQuery(intent, t, low);
         } else if (looksLikeListQuery(low)) {
             fillListQuery(intent, low);
@@ -232,6 +236,14 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
         if (fuel != null) {
             intent.setFuel(fuel.name());
         }
+    }
+
+    private static boolean looksLikeHelp(String low) {
+        return containsAny(low,
+                "o que voce faz", "o que você faz", "o que posso pedir", "o que posso falar",
+                "o que voce sabe", "o que você sabe", "suas capacidades", "me ajuda", "ajuda",
+                "como funciona", "o que consigo fazer", "quais comandos", "lista de comandos",
+                "me explica", "quem e voce", "quem é você");
     }
 
     private static boolean looksLikeStatusQuery(String low) {

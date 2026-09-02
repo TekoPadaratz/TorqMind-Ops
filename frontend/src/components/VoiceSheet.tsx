@@ -12,6 +12,12 @@ import {
   VoiceStatus,
   VoiceUiState
 } from '../voice/voice';
+import {
+  confirmationIntent,
+  fieldsFromSpeech,
+  matchAmbiguityOption,
+  shouldContinueConversation
+} from '../voice/conversation';
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -32,6 +38,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
   const timerRef = useRef<number | null>(null);
   const stopFallbackRef = useRef<number | null>(null);
   const autoStopRef = useRef<number | null>(null);
+  const followUpListenRef = useRef<number | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -100,10 +107,26 @@ export default function VoiceSheet({ open, onClose }: Props) {
     }, 1500);
   }
 
+  function clearFollowUpListen() {
+    if (followUpListenRef.current) window.clearTimeout(followUpListenRef.current);
+    followUpListenRef.current = null;
+  }
+
+  function scheduleFollowUpListening() {
+    clearFollowUpListen();
+    if (!open || busy || stoppingRef.current || recognitionRef.current) return;
+    if (!browserSpeechRecognitionSupported()) return;
+    followUpListenRef.current = window.setTimeout(() => {
+      if (!open || busy || stoppingRef.current || recognitionRef.current) return;
+      startRecording();
+    }, 500);
+  }
+
   function hardStopRecognition() {
     clearTimer();
     clearStopFallback();
     clearAutoStop();
+    clearFollowUpListen();
     const recognition = recognitionRef.current;
     recognitionRef.current = null;
     if (!recognition) return;
@@ -299,6 +322,34 @@ export default function VoiceSheet({ open, onClose }: Props) {
     setUi('processing');
     setBusy(true);
     try {
+      if (draft && shouldContinueConversation(draft)) {
+        if (draft.status === 'READY_FOR_CONFIRMATION' && draft.intent?.requiresConfirmation === true) {
+          const ci = confirmationIntent(normalized);
+          if (ci === 'confirm') {
+            await confirm(draft);
+            return;
+          }
+          if (ci === 'deny') {
+            await denyConfirmation();
+            return;
+          }
+          const retry = 'Não entendi. Diga sim para confirmar ou não para cancelar.';
+          setUi('preview');
+          setMessage(retry);
+          speak(retry, scheduleFollowUpListening);
+          return;
+        }
+        const amb = matchAmbiguityOption(normalized, draft.intent?.ambiguities || []);
+        const fields = fieldsFromSpeech(normalized, draft.intent?.missingFields || []);
+        const body: { transcript: string; selectedOptions?: Record<string, string>; fields?: Record<string, string> } = {
+          transcript: normalized
+        };
+        if (amb) body.selectedOptions = { [amb.field]: amb.key };
+        if (Object.keys(fields).length > 0) body.fields = fields;
+        const updated = await apiPatch(`/voice/drafts/${draft.id}`, body);
+        applyDraft(updated);
+        return;
+      }
       const created = await apiPost('/voice/drafts', {
         transcript: normalized,
         ...taskContextFromPath(location.pathname)
@@ -310,6 +361,17 @@ export default function VoiceSheet({ open, onClose }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function denyConfirmation() {
+    if (draft) {
+      try { await apiDelete(`/voice/drafts/${draft.id}`); } catch { /* ignore */ }
+    }
+    setDraft(null);
+    setUi('consent');
+    const msg = 'Ok, cancelado.';
+    setMessage(msg);
+    speak(msg, scheduleFollowUpListening);
   }
 
   function voiceQuestion(d: VoiceDraft): string {
@@ -343,16 +405,15 @@ export default function VoiceSheet({ open, onClose }: Props) {
       setUi('needs-input');
       const question = voiceQuestion(d);
       setMessage(question);
-      speak(question);
+      speak(question, scheduleFollowUpListening);
       return;
     }
     if (d.status === 'READY_FOR_CONFIRMATION') {
       if (d.intent?.requiresConfirmation === true) {
-        // Ação destrutiva (excluir/rejeitar): pede confirmação e fala a pergunta.
         setUi('preview');
         const question = d.previewText || 'Confirma?';
         setMessage(question);
-        speak(question);
+        speak(question, scheduleFollowUpListening);
         return;
       }
       // Execução direta: comando claro e resolvido cria na hora, sem confirmação manual.
@@ -405,13 +466,20 @@ export default function VoiceSheet({ open, onClose }: Props) {
       setUi('success');
       const spokenAnswer = updated.result?.spoken || updated.result?.message || 'Pronto.';
       setMessage(spokenAnswer);
-      speak(spokenAnswer);
       const to = updated.result?.navigateTo;
+      speak(spokenAnswer, () => {
+        if (to) {
+          setTimeout(() => {
+            onClose();
+            navigate(to);
+          }, 700);
+        } else {
+          setDraft(null);
+          scheduleFollowUpListening();
+        }
+      });
       if (to) {
-        setTimeout(() => {
-          onClose();
-          navigate(to);
-        }, 700);
+        return;
       }
     } catch (e) {
       setUi('error');
@@ -470,7 +538,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
     <div className="voice-overlay" role="dialog" aria-modal="true" aria-labelledby="voice-title">
       <div className="voice-sheet">
         <div className="voice-head">
-          <h2 id="voice-title">Comando por voz</h2>
+          <h2 id="voice-title">Assistente TorqMind</h2>
           <button type="button" className="btn-ghost" onClick={cancelDraft} aria-label="Fechar">Fechar</button>
         </div>
         <p className="muted" aria-live="polite">{message}</p>

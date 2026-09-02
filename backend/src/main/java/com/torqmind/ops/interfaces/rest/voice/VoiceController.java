@@ -92,7 +92,13 @@ public class VoiceController {
         if (request != null && request.fields() != null) {
             fields = request.fields();
         }
-        return voiceDraftService.patch(me, id, request == null ? null : request.selectedOptions(), fields);
+        return voiceDraftService.patch(
+                me,
+                id,
+                request == null ? null : request.selectedOptions(),
+                fields,
+                request == null ? null : request.transcript()
+        );
     }
 
     @PostMapping("/drafts/{id}/confirm")
@@ -128,7 +134,7 @@ public class VoiceController {
 
     public record CreateDraftRequest(String transcript, String currentTaskType, Long currentTaskId, String currentTaskTitle) {}
 
-    public record PatchRequest(Map<String, String> selectedOptions, VoiceIntent fields) {}
+    public record PatchRequest(Map<String, String> selectedOptions, VoiceIntent fields, String transcript) {}
 
     public record ConfirmRequest(String idempotencyKey) {}
 }

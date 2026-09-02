@@ -11,6 +11,7 @@ Ler primeiro (não duplicar):
 - `docs/architecture/ENVIRONMENT_MAP.md`
 - `docs/product/BUSINESS_RULES.md`
 - `docs/contracts/VOICE_COMMANDS.md`
+- `docs/contracts/PERSONAL_ASSISTANT_MAP.md`
 - `docs/engineering/EXECUTION_PLAN.md`
 
 Voz reutiliza `RoutineService` / `OccurrenceService` / `TaskDetailService`. Nunca gravar direto no banco. Isolamento Docker: só compose `torqmind-ops-saas` (porta 88).

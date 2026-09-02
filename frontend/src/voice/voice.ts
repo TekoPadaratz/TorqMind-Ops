@@ -101,17 +101,24 @@ export function browserSpeechRecognitionSupported(
   return browserSpeechRecognitionConstructor(scope) !== null;
 }
 
-export function speak(text: string | null | undefined): void {
+export function speak(text: string | null | undefined, onEnd?: () => void): void {
   try {
-    if (typeof window === 'undefined' || !text) return;
+    if (typeof window === 'undefined' || !text) {
+      onEnd?.();
+      return;
+    }
     const synth = window.speechSynthesis;
-    if (!synth) return;
+    if (!synth) {
+      onEnd?.();
+      return;
+    }
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'pt-BR';
+    if (onEnd) utter.onend = () => onEnd();
     synth.cancel();
     synth.speak(utter);
   } catch {
-    // TTS e best-effort; nunca pode quebrar o fluxo.
+    onEnd?.();
   }
 }
 
