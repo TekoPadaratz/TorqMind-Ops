@@ -21,7 +21,7 @@ Campos conhecidos (extras rejeitados):
 
 `schemaVersion, action, transcript, taskReference, title, description, companyReference, branchReference, cityReference, targetType, targetUserReference, targetSectorReference, recurrence, scheduledDate, startTime, dueTime, reminderBeforeMinutes, requiresPhoto, requiresComment, comment, occurrencePriority, fuel, requestedStatus, missingFields, ambiguities, warnings, confidence, requiresConfirmation`
 
-Ações: `CREATE_TASK | CREATE_OCCURRENCE | START_TASK | ADD_COMMENT | COMPLETE_TASK | REJECT_TASK | OPEN_TASK | OPEN_QUALITY_ANALYSIS | LIST_TASKS | LIST_OCCURRENCES | QUERY_TASK | DELETE_TASK | HELP`
+Ações: `CREATE_TASK | CREATE_OCCURRENCE | START_TASK | ADD_COMMENT | COMPLETE_TASK | REJECT_TASK | OPEN_TASK | OPEN_QUALITY_ANALYSIS | LIST_TASKS | LIST_OCCURRENCES | LIST_MY_TASKS | QUERY_TASK | DELETE_TASK | HELP | ADMIN_DENIED | START_OCCURRENCE | CLOSE_OCCURRENCE | OPEN_NOTIFICATIONS | SUMMARY_TODAY`
 
 `OPEN_QUALITY_ANALYSIS` só abre `/occurrences/new/fuel-quality` (query `fuel=` se falado). Não persiste ocorrência.
 
@@ -48,6 +48,12 @@ Referências viram IDs só contra catálogo autorizado (`AuthorizedEntityResolve
 - `LIST_TASKS`: resumo falado (contagem + primeiras rotinas), status `PENDENTE|ATRASADA|HOJE`.
 - `LIST_OCCURRENCES`: resumo falado das ocorrências abertas (contagem + primeiras).
 - `HELP`: resume capacidades da assistente (sempre responde; não exige confirmação).
+- `ADMIN_DENIED`: recusa cadastros/gestão administrativa com mensagem por papel.
+- `START_OCCURRENCE` / `CLOSE_OCCURRENCE`: assumir e encerrar ocorrências via `OccurrenceService.transition`.
+- `LIST_MY_TASKS`: rotinas atribuídas ao usuário do JWT.
+- `OPEN_NOTIFICATIONS`: contagem + último aviso; navega `/notifications`.
+- `SUMMARY_TODAY`: resumo falado (pendentes, atrasadas, ocorrências, avisos).
+- **Aprendizado (V26):** tabela `voice_phrase_learnings`; grava após confirm; ver `PERSONAL_ASSISTANT_MAP.md`.
 - Idempotência preservada: mesma `Idempotency-Key` + rascunho CONFIRMED devolve o resultado original. Áudio temporário apagado em `finally`.
 - **Defaults por empresa** (`company_settings`, V16, só MASTER): foto/comentário obrigatórios e lembrete padrão preenchem o que não foi dito em `CREATE_TASK` (via `VoiceDraftService.applyCompanyDefaults`).
 

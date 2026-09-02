@@ -391,6 +391,7 @@ export default function VoiceSheet({ open, onClose }: Props) {
     if (missing.includes('scheduledDate')) return 'Para qual data?';
     if (missing.includes('comment')) return 'Qual comentário devo registrar?';
     if (missing.includes('photo')) return 'Preciso de uma foto para concluir. Toque para tirar.';
+    if (missing.includes('taskReference')) return 'Qual tarefa ou ocorrência?';
     return d.previewText || 'Preciso de mais uma informação.';
   }
 

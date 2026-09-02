@@ -79,6 +79,9 @@ public class VoiceDraft {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "last_clarification_transcript", columnDefinition = "TEXT")
+    private String lastClarificationTranscript;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getActorUserId() { return actorUserId; }
@@ -121,4 +124,8 @@ public class VoiceDraft {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getLastClarificationTranscript() { return lastClarificationTranscript; }
+    public void setLastClarificationTranscript(String lastClarificationTranscript) {
+        this.lastClarificationTranscript = lastClarificationTranscript;
+    }
 }

@@ -43,6 +43,23 @@ Estados: ver `VOICE_COMMANDS.md`.
 | `LIST_OCCURRENCES` | Lista ocorrências abertas (falado) | Não | "Verifique se tem ocorrências pendentes" |
 | `QUERY_TASK` | Status por nome/responsável/data | Não | "O João executou a rotina de aferição hoje?" |
 | `DELETE_TASK` | Soft-delete de template de rotina | **Sim** | "Exclua a rotina de extintores" |
+| `START_OCCURRENCE` | Assume ocorrência (`EM_ATENDIMENTO`) | Não | "Assuma o chamado da bomba parada" |
+| `CLOSE_OCCURRENCE` | Encerra ocorrência (fluxo de status) | Não | "Encerre a ocorrência do vazamento" |
+| `LIST_MY_TASKS` | Tarefas atribuídas ao usuário | Não | "Minhas tarefas de hoje", "O que tenho pra fazer?" |
+| `OPEN_NOTIFICATIONS` | Conta e resume avisos | Não | "Tem avisos novos?", "Minhas notificações" |
+| `SUMMARY_TODAY` | Resumo operacional do dia | Não | "Como está a operação hoje?", "Resumo do dia" |
+| `ADMIN_DENIED` | Recusa pedido administrativo | Não | "Cadastrar usuário", "Criar filial" → orienta usar Gestão |
+
+### Aprendizado de frases (V26)
+
+Após **confirmação bem-sucedida**, frases e apelidos podem ser gravados em `voice_phrase_learnings` (escopo **empresa**):
+
+- **INTENT** — atalho de comando completo ("minhas coisas de hoje" → `LIST_MY_TASKS` + `HOJE`)
+- **SLOT** — apelido de entidade após desambiguação ("posto centro" → filial X)
+
+**Safeguards:** nunca aprende `DELETE_TASK`, `REJECT_TASK`, `ADMIN_DENIED`; limite 300 entradas/empresa; aplicação só complementa intent (não furta `TenantResolver`).
+
+Corpus de regressão: `backend/src/test/resources/voice/golden_phrases.json` + `VoiceGoldenPhrasesTest`.
 
 ### Slots comuns
 
@@ -72,9 +89,8 @@ Confirmação destrutiva: "sim", "confirmo", "pode", "ok", "isso" / negação: "
 
 ## O que a assistente **não** faz (resposta honesta)
 
-- Vendas, financeiro, metas, lucro (produto TorqMind Intelligence — outro repositório).
-- Transições de ocorrência além de rejeitar (ex.: encerrar análise de qualidade — use a tela).
-- Gestão admin (`/api/admin/**`), API keys, webhooks, usuários.
+- Vendas, financeiro, metas, lucro → use **TorqMind BI** (produto separado; HELP menciona deep link conceitual).
+- Gestão admin (`/api/admin/**`), API keys, webhooks, **cadastro de usuários/filiais** → `ADMIN_DENIED` com mensagem por papel.
 - Exclusão em massa ("apague todas") — recusada com mensagem falada.
 - Wake word contínua em segundo plano (precisa abrir a assistente uma vez por sessão).
 
@@ -86,10 +102,14 @@ Confirmação destrutiva: "sim", "confirmo", "pode", "ok", "isso" / negação: "
 4. **Ambiguidade** — dois "João" → pergunta → "o da filial centro" → resolve.
 5. **Consulta** — "A Maria concluiu a aferição hoje?" → resposta sim/não falada.
 6. **Destrutivo** — "Exclua rotina extintores" → pede confirmação → "sim" → exclui.
-7. **Contínuo** — após resposta, microfone reabre para próximo comando sem tocar em botão.
+8. **Assumir ocorrência** — "Assuma o chamado X" → `EM_ATENDIMENTO`.
+9. **Encerrar** — "Encerre a ocorrência X" → fluxo até `ENCERRADA`.
+10. **Resumo** — "Como está a operação hoje?" → contagens faladas.
+11. **Admin negado** — "Cadastrar usuário" → recusa educada + orientação.
+12. **Aprendizado** — desambigua "posto centro" → sucesso → próxima vez reconhece apelido.
 
 ## Implementação
 
 - Backend: `VoiceDraftService`, `VoiceConversationResolver`, `DeterministicVoiceIntentProvider`, `VoiceCommandExecutor`
 - Frontend: `VoiceSheet`, `voice/conversation.ts`, TTS `speak` + reabertura do microfone
-- Testes: `DeterministicVoiceIntentProviderTest`, `VoiceConversationResolverTest`, `voice/conversation.test.ts`
+- Testes: `DeterministicVoiceIntentProviderTest`, `VoiceGoldenPhrasesTest`, `VoiceConversationResolverTest`, `VoicePhraseLearningServiceTest`, `voice/conversation.test.ts`

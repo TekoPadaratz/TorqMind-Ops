@@ -12,6 +12,8 @@ import com.torqmind.ops.domain.ops.OccurrenceStatus;
 import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.routine.RoutineRun;
 import com.torqmind.ops.domain.routine.RoutineTemplate;
+import com.torqmind.ops.infrastructure.persistence.NotificationRepository;
+import com.torqmind.ops.infrastructure.persistence.OccurrenceRepository;
 import com.torqmind.ops.infrastructure.persistence.RoutineRunRepository;
 import com.torqmind.ops.infrastructure.persistence.RoutineTemplateRepository;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
@@ -26,12 +28,33 @@ import java.util.UUID;
 
 class VoiceCommandExecutorTest {
 
+    private static VoiceCommandExecutor executor(
+            RoutineService routineService,
+            OccurrenceService occurrenceService,
+            TaskDetailService taskDetailService,
+            TenantResolver tenantResolver,
+            RoutineRunRepository runRepository,
+            RoutineTemplateRepository templateRepository
+    ) {
+        return new VoiceCommandExecutor(
+                routineService,
+                occurrenceService,
+                taskDetailService,
+                tenantResolver,
+                runRepository,
+                templateRepository,
+                Mockito.mock(OccurrenceRepository.class),
+                Mockito.mock(NotificationRepository.class)
+        );
+    }
+
     @Test
     void createTaskGoesThroughRoutineService() {
         RoutineService routineService = Mockito.mock(RoutineService.class);
         TenantResolver tenantResolver = Mockito.mock(TenantResolver.class);
         RoutineTemplate saved = Mockito.mock(RoutineTemplate.class);
         Mockito.when(saved.getId()).thenReturn(42L);
+        Mockito.when(saved.getTitle()).thenReturn("Limpeza");
         Mockito.when(tenantResolver.resolveCompanyForCreate(Mockito.any(), Mockito.any())).thenReturn(1L);
         Mockito.when(tenantResolver.resolveBranchForCreate(Mockito.any(), Mockito.any())).thenReturn(2L);
         Mockito.when(routineService.createRecurringTask(
@@ -42,7 +65,7 @@ class VoiceCommandExecutorTest {
                 Mockito.eq(true), Mockito.eq(true), Mockito.any(), Mockito.any()
         )).thenReturn(saved);
 
-        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+        VoiceCommandExecutor executor = executor(
                 routineService,
                 Mockito.mock(OccurrenceService.class),
                 Mockito.mock(TaskDetailService.class),
@@ -50,7 +73,6 @@ class VoiceCommandExecutorTest {
                 Mockito.mock(RoutineRunRepository.class),
                 Mockito.mock(RoutineTemplateRepository.class)
         );
-        AppUserPrincipal me = new AppUserPrincipal(UUID.randomUUID(), "op", "MANAGER", 1L, 2L);
         VoiceIntent intent = new VoiceIntent();
         intent.setAction("CREATE_TASK");
         intent.setTitle("Limpeza");
@@ -66,6 +88,7 @@ class VoiceCommandExecutorTest {
         resolved.setBranchId(2L);
         resolved.setUserId(UUID.randomUUID());
 
+        AppUserPrincipal me = new AppUserPrincipal(UUID.randomUUID(), "op", "MANAGER", 1L, 2L);
         Map<String, Object> result = executor.execute(me, intent, resolved);
         Assertions.assertEquals(42L, result.get("entityId"));
         Mockito.verify(routineService).createRecurringTask(
@@ -80,7 +103,7 @@ class VoiceCommandExecutorTest {
     @Test
     void openQualityAnalysisNavigatesWithoutSaving() {
         OccurrenceService occurrenceService = Mockito.mock(OccurrenceService.class);
-        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+        VoiceCommandExecutor executor = executor(
                 Mockito.mock(RoutineService.class),
                 occurrenceService,
                 Mockito.mock(TaskDetailService.class),
@@ -105,7 +128,7 @@ class VoiceCommandExecutorTest {
         Mockito.when(run.getStatus()).thenReturn(RoutineStatus.CONCLUIDA);
         Mockito.when(run.getCompletedAt()).thenReturn(null);
         Mockito.when(runRepo.findById(7L)).thenReturn(java.util.Optional.of(run));
-        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+        VoiceCommandExecutor executor = executor(
                 Mockito.mock(RoutineService.class),
                 Mockito.mock(OccurrenceService.class),
                 Mockito.mock(TaskDetailService.class),
@@ -132,7 +155,7 @@ class VoiceCommandExecutorTest {
         RoutineService routineService = Mockito.mock(RoutineService.class);
         Mockito.when(routineService.deleteTemplateAsActor(Mockito.eq(5L), Mockito.any()))
                 .thenThrow(new com.torqmind.ops.shared.api.ForbiddenException("nope"));
-        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+        VoiceCommandExecutor executor = executor(
                 routineService,
                 Mockito.mock(OccurrenceService.class),
                 Mockito.mock(TaskDetailService.class),
@@ -163,7 +186,7 @@ class VoiceCommandExecutorTest {
         Mockito.when(o1.getStatus()).thenReturn(OccurrenceStatus.ABERTA);
         Mockito.when(occurrenceService.list(Mockito.eq(1L), Mockito.isNull(), Mockito.eq(OccurrenceStatus.ABERTA)))
                 .thenReturn(java.util.List.of(o1));
-        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+        VoiceCommandExecutor executor = executor(
                 Mockito.mock(RoutineService.class),
                 occurrenceService,
                 Mockito.mock(TaskDetailService.class),
@@ -182,7 +205,7 @@ class VoiceCommandExecutorTest {
 
     @Test
     void bulkDeleteIsRefusedEvenForOwner() {
-        VoiceCommandExecutor executor = new VoiceCommandExecutor(
+        VoiceCommandExecutor executor = executor(
                 Mockito.mock(RoutineService.class),
                 Mockito.mock(OccurrenceService.class),
                 Mockito.mock(TaskDetailService.class),
@@ -197,5 +220,47 @@ class VoiceCommandExecutorTest {
         Map<String, Object> result = executor.execute(me, intent, new VoiceResolved());
         Assertions.assertEquals("REFUSED", result.get("entityType"));
         Assertions.assertTrue(String.valueOf(result.get("spoken")).toLowerCase().contains("massa"));
+    }
+
+    @Test
+    void adminDeniedExplainsHierarchy() {
+        VoiceCommandExecutor exec = executor(
+                Mockito.mock(RoutineService.class),
+                Mockito.mock(OccurrenceService.class),
+                Mockito.mock(TaskDetailService.class),
+                Mockito.mock(TenantResolver.class),
+                Mockito.mock(RoutineRunRepository.class),
+                Mockito.mock(RoutineTemplateRepository.class)
+        );
+        VoiceIntent intent = new VoiceIntent();
+        intent.setAction("ADMIN_DENIED");
+        AppUserPrincipal op = new AppUserPrincipal(UUID.randomUUID(), "op", "OPERATOR", 1L, 2L);
+        String spoken = String.valueOf(exec.execute(op, intent, new VoiceResolved()).get("spoken"));
+        Assertions.assertTrue(spoken.toLowerCase().contains("cadastro"));
+    }
+
+    @Test
+    void startOccurrenceTransitionsToInProgress() {
+        OccurrenceService occurrenceService = Mockito.mock(OccurrenceService.class);
+        Occurrence occ = Mockito.mock(Occurrence.class);
+        Mockito.when(occ.getId()).thenReturn(9L);
+        Mockito.when(occ.getTitle()).thenReturn("Bomba parada");
+        Mockito.when(occurrenceService.transition(Mockito.eq(9L), Mockito.eq(OccurrenceStatus.EM_ATENDIMENTO), Mockito.any(), Mockito.any()))
+                .thenReturn(occ);
+        VoiceCommandExecutor exec = executor(
+                Mockito.mock(RoutineService.class),
+                occurrenceService,
+                Mockito.mock(TaskDetailService.class),
+                Mockito.mock(TenantResolver.class),
+                Mockito.mock(RoutineRunRepository.class),
+                Mockito.mock(RoutineTemplateRepository.class)
+        );
+        VoiceIntent intent = new VoiceIntent();
+        intent.setAction("START_OCCURRENCE");
+        VoiceResolved resolved = new VoiceResolved();
+        resolved.setOccurrenceId(9L);
+        AppUserPrincipal me = new AppUserPrincipal(UUID.randomUUID(), "m", "MANAGER", 1L, 2L);
+        Map<String, Object> result = exec.execute(me, intent, resolved);
+        Assertions.assertTrue(String.valueOf(result.get("spoken")).toLowerCase().contains("atendendo"));
     }
 }

@@ -232,7 +232,10 @@ public class AuthorizedEntityResolver {
             resolveDeleteTarget(me, intent, resolved);
             return;
         }
-        boolean needsTask = List.of("START_TASK", "COMPLETE_TASK", "REJECT_TASK", "ADD_COMMENT", "OPEN_TASK").contains(action);
+        boolean needsTask = List.of(
+                "START_TASK", "COMPLETE_TASK", "REJECT_TASK", "ADD_COMMENT", "OPEN_TASK",
+                "START_OCCURRENCE", "CLOSE_OCCURRENCE"
+        ).contains(action);
         if (!needsTask) {
             return;
         }
@@ -240,6 +243,18 @@ public class AuthorizedEntityResolver {
                 && (blank(intent.getTaskReference()) || "current".equalsIgnoreCase(intent.getTaskReference()))) {
             bindCurrent(me, context, resolved, intent);
             return;
+        }
+        if (List.of("START_OCCURRENCE", "CLOSE_OCCURRENCE").contains(action)
+                || (mentionsOccurrenceAction(intent) && resolved.getOccurrenceId() == null && resolved.getRunId() == null)) {
+            resolveOccurrenceTarget(me, intent, resolved);
+            if (resolved.getOccurrenceId() != null) {
+                return;
+            }
+            if (!List.of("START_OCCURRENCE", "CLOSE_OCCURRENCE").contains(action)) {
+                // fall through to routine resolution for mixed commands
+            } else {
+                return;
+            }
         }
         String ref = intent.getTaskReference();
         Long cid = resolved.getCompanyId();
@@ -408,6 +423,60 @@ public class AuthorizedEntityResolver {
             userRepository.findById(t.getTargetUserId()).ifPresent(u -> sb.append(" / ").append(u.getFullName()));
         }
         return sb.toString();
+    }
+
+    private static boolean mentionsOccurrenceAction(VoiceIntent intent) {
+        String action = nvl(intent.getAction());
+        return List.of("START_OCCURRENCE", "CLOSE_OCCURRENCE", "REJECT_TASK").contains(action)
+                || (intent.getTranscript() != null && (intent.getTranscript().toLowerCase(Locale.ROOT).contains("ocorrenc")
+                || intent.getTranscript().toLowerCase(Locale.ROOT).contains("chamado")));
+    }
+
+    private void resolveOccurrenceTarget(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
+        String ref = intent.getTaskReference();
+        Long cid = resolved.getCompanyId();
+        Long bid = tenantResolver.branchFilterOrNull(me);
+        List<Occurrence> occs = bid != null
+                ? occurrenceRepository.findByCompanyIdAndBranchIdOrderByCreatedAtDesc(cid, bid)
+                : occurrenceRepository.findByCompanyIdOrderByCreatedAtDesc(cid);
+        String action = nvl(intent.getAction());
+        if (!blank(ref) && ref.startsWith("o:")) {
+            Long id = parseLong(ref.substring(2));
+            Occurrence occ = occs.stream().filter(o -> o.getId().equals(id)).findFirst().orElse(null);
+            if (occ == null) {
+                intent.getMissingFields().add("taskReference");
+                return;
+            }
+            tenantResolver.assertCanAccess(me, occ.getCompanyId(), occ.getBranchId());
+            resolved.setOccurrenceId(occ.getId());
+            resolved.setTaskType("OCCURRENCE");
+            resolved.setTaskTitle(occ.getTitle());
+            return;
+        }
+        List<Occurrence> open = occs.stream()
+                .filter(o -> {
+                    if ("START_OCCURRENCE".equals(action)) {
+                        return o.getStatus() == com.torqmind.ops.domain.ops.OccurrenceStatus.ABERTA;
+                    }
+                    if ("CLOSE_OCCURRENCE".equals(action)) {
+                        return o.getStatus() != com.torqmind.ops.domain.ops.OccurrenceStatus.ENCERRADA
+                                && o.getStatus() != com.torqmind.ops.domain.ops.OccurrenceStatus.REJEITADA;
+                    }
+                    return true;
+                })
+                .filter(o -> blank(ref) || matches(o.getTitle(), ref) || matches(o.getDescription(), ref))
+                .limit(12)
+                .toList();
+        putAmbiguity(intent, "taskReference", ref, open.stream()
+                .map(o -> new VoiceOption("o:" + o.getId(), o.getTitle() + " (" + o.getStatus().name() + ")"))
+                .toList());
+        if (open.size() == 1) {
+            resolved.setOccurrenceId(open.get(0).getId());
+            resolved.setTaskType("OCCURRENCE");
+            resolved.setTaskTitle(open.get(0).getTitle());
+        } else if (open.isEmpty() && !blank(ref)) {
+            intent.getMissingFields().add("taskReference");
+        }
     }
 
     private static LocalDate parseQueryDate(String iso) {

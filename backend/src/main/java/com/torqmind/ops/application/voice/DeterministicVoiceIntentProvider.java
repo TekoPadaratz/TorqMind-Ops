@@ -50,26 +50,60 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             intent.getWarnings().add("Trechos de instrução foram ignorados.");
         }
 
-        if (looksLikeHelp(low)) {
+        if (looksLikeAdmin(low)) {
+            intent.setAction("ADMIN_DENIED");
+            intent.setRequiresConfirmation(false);
+            intent.setConfidence(0.98);
+        } else if (looksLikeHelp(low)) {
             intent.setAction("HELP");
             intent.setRequiresConfirmation(false);
             intent.setConfidence(0.95);
+        } else if (looksLikeNotifications(low)) {
+            intent.setAction("OPEN_NOTIFICATIONS");
+            intent.setRequiresConfirmation(false);
+            intent.setConfidence(0.92);
+        } else if (looksLikeSummaryToday(low)) {
+            intent.setAction("SUMMARY_TODAY");
+            intent.setRequiresConfirmation(false);
+            intent.setConfidence(0.92);
+        } else if (looksLikeMyTasks(low)) {
+            intent.setAction("LIST_MY_TASKS");
+            intent.setRequiresConfirmation(false);
+            if (low.contains("atrasad")) {
+                intent.setRequestedStatus("ATRASADA");
+            } else if (low.contains("hoje")) {
+                intent.setRequestedStatus("HOJE");
+            } else {
+                intent.setRequestedStatus("PENDENTE");
+            }
+            intent.setConfidence(0.9);
         } else if (looksLikeStatusQuery(low)) {
             fillStatusQuery(intent, t, low);
         } else if (looksLikeListQuery(low)) {
             fillListQuery(intent, low);
         } else if (looksLikeDelete(low)) {
             fillDelete(intent, t);
+        } else if (looksLikeCloseOccurrence(low)) {
+            intent.setAction("CLOSE_OCCURRENCE");
+            fillOccurrenceRef(intent, t, context);
+        } else if (looksLikeStartOccurrence(low)) {
+            intent.setAction("START_OCCURRENCE");
+            fillOccurrenceRef(intent, t, context);
         } else if (looksLikeQualityAnalysis(low)) {
             fillQualityAnalysis(intent, low);
         } else if (mentionsOccurrence(low)) {
             fillOccurrence(intent, t, low);
         } else if (wantsCreateTask(low)) {
             fillCreateTask(intent, t, low);
-        } else if (containsAny(low, "inicie", "iniciar", "comece")) {
-            intent.setAction("START_TASK");
-            fillTaskRef(intent, t, context);
-        } else if (containsAny(low, "conclua", "concluir", "finalize")) {
+        } else if (containsAny(low, "inicie", "iniciar", "comece", "começar", "inicia ")) {
+            if (mentionsOccurrence(low) || low.contains("chamado")) {
+                intent.setAction("START_OCCURRENCE");
+                fillOccurrenceRef(intent, t, context);
+            } else {
+                intent.setAction("START_TASK");
+                fillTaskRef(intent, t, context);
+            }
+        } else if (containsAny(low, "conclua", "concluir", "finalize", "finalizar", "finaliza ")) {
             intent.setAction("COMPLETE_TASK");
             fillTaskRef(intent, t, context);
         } else if (containsAny(low, "rejeite", "rejeitar")) {
@@ -92,7 +126,7 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
                     intent.setComment(t.substring(idx + 1).trim());
                 }
             }
-        } else if (containsAny(low, "mostre", "liste", "minhas tarefas", "o que esta pendente", "o que está pendente", "o que falta", "resumo", "pendentes", "atrasadas", "situacao", "situação")) {
+        } else if (containsAny(low, "mostre", "liste", "o que esta pendente", "o que está pendente", "o que falta", "resumo", "pendentes", "atrasadas", "situacao", "situação")) {
             intent.setAction("LIST_TASKS");
             if (low.contains("atrasad")) {
                 intent.setRequestedStatus("ATRASADA");
@@ -101,21 +135,79 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
             } else if (low.contains("hoje")) {
                 intent.setRequestedStatus("HOJE");
             }
-        } else if (containsAny(low, "abra a tarefa", "abrir tarefa", "abre a tarefa")) {
+        } else if (containsAny(low, "abra a tarefa", "abrir tarefa", "abre a tarefa", "abra o chamado", "abrir chamado", "abre o checklist", "abrir checklist", "abrir servico", "abrir serviço")) {
             intent.setAction("OPEN_TASK");
             fillTaskRef(intent, t, context);
-        } else if (containsAny(low, "abra uma ocorr", "abrir ocorr")) {
+        } else if (containsAny(low, "abra uma ocorr", "abrir ocorr", "abrir chamado", "nova ocorr", "novo chamado")) {
             if (looksLikeQualityAnalysis(low)) {
                 fillQualityAnalysis(intent, low);
             } else {
                 fillOccurrence(intent, t, low);
             }
         } else {
-            intent.setAction("LIST_TASKS");
-            intent.getWarnings().add("Não identifiquei a ação; mostrando tarefas para conferência.");
-            intent.setConfidence(0.3);
+            intent.setAction("HELP");
+            intent.getWarnings().add("Não identifiquei o comando; vou explicar o que posso fazer.");
+            intent.setConfidence(0.35);
         }
         return intent;
+    }
+
+    static boolean looksLikeAdmin(String low) {
+        return containsAny(low,
+                "criar usuario", "criar usuário", "cadastrar usuario", "cadastrar usuário",
+                "novo usuario", "novo usuário", "cadastro de usuario", "cadastro de usuário",
+                "criar filial", "cadastrar filial", "nova filial", "criar empresa", "cadastrar empresa",
+                "nova empresa", "api key", "chave de api", "webhook", "gestao de", "gestão de",
+                "menu gestao", "menu gestão", "administrar sistema", "trocar senha de", "resetar senha",
+                "alterar permissao", "alterar permissão", "promover usuario", "promover usuário");
+    }
+
+    private static boolean looksLikeNotifications(String low) {
+        return containsAny(low,
+                "avisos", "notificac", "notificaç", "tem aviso", "tem notific", "alertas novos",
+                "mensagens novas", "o que chegou");
+    }
+
+    private static boolean looksLikeSummaryToday(String low) {
+        return containsAny(low,
+                "como esta a operacao", "como está a operação", "resumo do dia", "panorama do dia",
+                "situacao de hoje", "situação de hoje", "como estamos hoje", "status da operacao",
+                "status da operação", "resumo operacional");
+    }
+
+    private static boolean looksLikeMyTasks(String low) {
+        return containsAny(low,
+                "minhas tarefas", "minhas rotinas", "minhas pendencias", "minhas pendências",
+                "o que tenho pra fazer", "o que tenho para fazer", "meu servico", "meu serviço",
+                "meus checklists", "minha agenda de hoje");
+    }
+
+    private static boolean looksLikeStartOccurrence(String low) {
+        return (mentionsOccurrence(low) || low.contains("chamado"))
+                && containsAny(low, "assuma", "assumir", "atender", "pegar", "iniciar atendimento", "comece o atendimento");
+    }
+
+    private static boolean looksLikeCloseOccurrence(String low) {
+        return (mentionsOccurrence(low) || low.contains("chamado"))
+                && containsAny(low, "encerr", "finaliz", "fechar", "concluir o chamado", "concluir a ocorrencia", "concluir a ocorrência");
+    }
+
+    private static void fillOccurrenceRef(VoiceIntent intent, String t, VoiceContext context) {
+        if (context != null && context.getCurrentTaskId() != null
+                && "OCCURRENCE".equalsIgnoreCase(context.getCurrentTaskType())) {
+            intent.setTaskReference("current");
+            if (context.getCurrentTaskTitle() != null) {
+                intent.setTitle(context.getCurrentTaskTitle());
+            }
+            return;
+        }
+        Matcher title = QUERY_TITLE.matcher(t);
+        if (title.find() && !title.group(1).isBlank()) {
+            intent.setTaskReference(title.group(1).trim());
+            intent.setTitle(capitalize(title.group(1).trim()));
+        } else {
+            intent.setTaskReference(t);
+        }
     }
 
     private static void fillCreateTask(VoiceIntent intent, String t, String low) {
@@ -273,7 +365,7 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
     }
 
     private static boolean mentionsOccurrence(String low) {
-        return low.contains("ocorrencia") || low.contains("ocorrência");
+        return low.contains("ocorrencia") || low.contains("ocorrência") || low.contains("chamado");
     }
 
     // Consulta/checagem ("verifique se tem ocorrencias pendentes", "quais tarefas atrasadas") -> listar, nunca criar.
@@ -285,8 +377,8 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
                 "o que tem", "o que esta", "o que está", "o que falta", "quero ver", "ver as", "veja",
                 "tem ocorr", "tem tarefa", "tem rotina");
         boolean noun = containsAny(low,
-                "ocorrencia", "ocorrência", "pendente", "aberta", "aberto", "atrasada", "atrasado",
-                "tarefa", "rotina");
+                "ocorrencia", "ocorrência", "chamado", "pendente", "aberta", "aberto", "atrasada", "atrasado",
+                "tarefa", "rotina", "checklist", "servico", "serviço");
         boolean create = containsAny(low,
                 "criar", "crie", "cadastr", "registrar", "registre", "abrir uma", "abra uma",
                 "abre uma", "nova ", "novo ", "informando que");
@@ -397,7 +489,7 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
         if (containsAny(low, "toda segunda", "todas as segundas", "nos dias")) {
             return true;
         }
-        boolean noun = containsAny(low, "tarefa", "rotina");
+        boolean noun = containsAny(low, "tarefa", "rotina", "checklist", "servico", "serviço");
         boolean verb = containsAny(low, "criar", "crie", "cria ", "cadastr",
                 "registrar", "registre", "agendar", "agende", "montar", "monte", "nova ", "novo ");
         return noun && verb;

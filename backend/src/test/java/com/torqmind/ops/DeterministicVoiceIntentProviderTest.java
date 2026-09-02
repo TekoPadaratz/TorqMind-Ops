@@ -64,7 +64,7 @@ class DeterministicVoiceIntentProviderTest {
         Assertions.assertTrue(comment.getComment().toLowerCase().contains("bombas"));
 
         VoiceIntent list = provider.interpret("Mostre minhas tarefas atrasadas.", null);
-        Assertions.assertEquals("LIST_TASKS", list.getAction());
+        Assertions.assertEquals("LIST_MY_TASKS", list.getAction());
         Assertions.assertEquals("ATRASADA", list.getRequestedStatus());
     }
 
@@ -193,6 +193,30 @@ class DeterministicVoiceIntentProviderTest {
         VoiceIntent h = provider.interpret("O que você faz?", null);
         Assertions.assertEquals("HELP", h.getAction());
         Assertions.assertEquals(Boolean.FALSE, h.getRequiresConfirmation());
+    }
+
+    @Test
+    void adminRequestIsDenied() {
+        VoiceIntent a = provider.interpret("Cadastrar novo usuário João", null);
+        Assertions.assertEquals("ADMIN_DENIED", a.getAction());
+    }
+
+    @Test
+    void summaryTodayIsRecognized() {
+        VoiceIntent s = provider.interpret("Como está a operação hoje?", null);
+        Assertions.assertEquals("SUMMARY_TODAY", s.getAction());
+    }
+
+    @Test
+    void myTasksIsRecognized() {
+        VoiceIntent m = provider.interpret("Minhas tarefas pendentes", null);
+        Assertions.assertEquals("LIST_MY_TASKS", m.getAction());
+    }
+
+    @Test
+    void startOccurrenceIsRecognized() {
+        VoiceIntent s = provider.interpret("Assuma a ocorrência da bomba parada", null);
+        Assertions.assertEquals("START_OCCURRENCE", s.getAction());
     }
 
     @Test

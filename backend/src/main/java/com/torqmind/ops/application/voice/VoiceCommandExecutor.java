@@ -10,6 +10,8 @@ import com.torqmind.ops.domain.ops.RoutineStatus;
 import com.torqmind.ops.domain.routine.RoutineRun;
 import com.torqmind.ops.domain.routine.RoutineTemplate;
 import com.torqmind.ops.domain.task.TaskType;
+import com.torqmind.ops.infrastructure.persistence.NotificationRepository;
+import com.torqmind.ops.infrastructure.persistence.OccurrenceRepository;
 import com.torqmind.ops.infrastructure.persistence.RoutineRunRepository;
 import com.torqmind.ops.infrastructure.persistence.RoutineTemplateRepository;
 import com.torqmind.ops.infrastructure.security.AppUserPrincipal;
@@ -32,6 +34,8 @@ public class VoiceCommandExecutor {
     private final TenantResolver tenantResolver;
     private final RoutineRunRepository runRepository;
     private final RoutineTemplateRepository templateRepository;
+    private final OccurrenceRepository occurrenceRepository;
+    private final NotificationRepository notificationRepository;
 
     public VoiceCommandExecutor(
             RoutineService routineService,
@@ -39,7 +43,9 @@ public class VoiceCommandExecutor {
             TaskDetailService taskDetailService,
             TenantResolver tenantResolver,
             RoutineRunRepository runRepository,
-            RoutineTemplateRepository templateRepository
+            RoutineTemplateRepository templateRepository,
+            OccurrenceRepository occurrenceRepository,
+            NotificationRepository notificationRepository
     ) {
         this.routineService = routineService;
         this.occurrenceService = occurrenceService;
@@ -47,6 +53,8 @@ public class VoiceCommandExecutor {
         this.tenantResolver = tenantResolver;
         this.runRepository = runRepository;
         this.templateRepository = templateRepository;
+        this.occurrenceRepository = occurrenceRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     public Map<String, Object> execute(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
@@ -65,6 +73,12 @@ public class VoiceCommandExecutor {
             case "QUERY_TASK" -> queryTask(intent, resolved);
             case "DELETE_TASK" -> deleteTask(me, intent, resolved);
             case "HELP" -> help(me);
+            case "ADMIN_DENIED" -> adminDenied(me);
+            case "START_OCCURRENCE" -> startOccurrence(me, intent, resolved);
+            case "CLOSE_OCCURRENCE" -> closeOccurrence(me, intent, resolved);
+            case "LIST_MY_TASKS" -> listMyTasks(me, intent);
+            case "OPEN_NOTIFICATIONS" -> openNotifications(me);
+            case "SUMMARY_TODAY" -> summaryToday(me);
             default -> throw new IllegalArgumentException("Ação de voz não suportada.");
         };
     }
@@ -98,6 +112,12 @@ public class VoiceCommandExecutor {
             case "QUERY_TASK" -> "Consultar status de \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma tarefa")) + "\".";
             case "DELETE_TASK" -> "Excluir a rotina \"" + nvl(resolved.getTaskTitle(), nvl(intent.getTitle(), "uma rotina")) + "\".";
             case "HELP" -> "Mostrar o que a assistente pode fazer.";
+            case "ADMIN_DENIED" -> "Recusar pedido administrativo.";
+            case "START_OCCURRENCE" -> "Assumir ocorrência \"" + nvl(resolved.getTaskTitle(), "selecionada") + "\".";
+            case "CLOSE_OCCURRENCE" -> "Encerrar ocorrência \"" + nvl(resolved.getTaskTitle(), "selecionada") + "\".";
+            case "LIST_MY_TASKS" -> "Listar minhas tarefas.";
+            case "OPEN_NOTIFICATIONS" -> "Consultar avisos.";
+            case "SUMMARY_TODAY" -> "Resumo operacional de hoje.";
             default -> "Confirmar comando.";
         };
     }
@@ -134,6 +154,14 @@ public class VoiceCommandExecutor {
             intent.setMissingFields(List.of());
             intent.setAmbiguities(List.of());
             return;
+        }
+        if ("ADMIN_DENIED".equals(action) || "OPEN_NOTIFICATIONS".equals(action) || "SUMMARY_TODAY".equals(action)) {
+            intent.setMissingFields(List.of());
+            intent.setAmbiguities(List.of());
+            return;
+        }
+        if (List.of("START_OCCURRENCE", "CLOSE_OCCURRENCE").contains(action) && resolved.getOccurrenceId() == null) {
+            missing.add("taskReference");
         }
         if ("COMPLETE_TASK".equals(action) && resolved.getRunId() != null) {
             RoutineRun run = runRepository.findById(resolved.getRunId()).orElse(null);
@@ -190,7 +218,9 @@ public class VoiceCommandExecutor {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("entityType", "ROUTINE_TEMPLATE");
         out.put("entityId", saved.getId());
-        out.put("message", "Tarefa criada.");
+        String spoken = "Pronto. Criei a tarefa " + saved.getTitle() + ".";
+        out.put("message", spoken);
+        out.put("spoken", spoken);
         out.put("navigateTo", "/routines");
         return out;
     }
@@ -206,7 +236,9 @@ public class VoiceCommandExecutor {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("entityType", "OCCURRENCE");
         out.put("entityId", saved.getId());
-        out.put("message", "Ocorrência aberta.");
+        String spoken = "Abri a ocorrência " + saved.getTitle() + ".";
+        out.put("message", spoken);
+        out.put("spoken", spoken);
         out.put("navigateTo", "/occurrences/" + saved.getId());
         return out;
     }
@@ -462,12 +494,203 @@ public class VoiceCommandExecutor {
         return out;
     }
 
+    private Map<String, Object> adminDenied(AppUserPrincipal me) {
+        String role = me == null ? "" : nvl(me.role(), "");
+        String spoken = switch (role.toUpperCase(java.util.Locale.ROOT)) {
+            case "MASTER" -> "Cadastro de usuários, filiais e configurações administrativas é feito no menu Gestão da tela, não por voz. Posso ajudar com tarefas e ocorrências do dia a dia.";
+            case "OWNER", "MANAGER" -> "Isso é configuração administrativa e não está disponível por voz. Use a tela do sistema ou fale com o administrador. Posso ajudar com tarefas e ocorrências da operação.";
+            default -> "Funcionários não fazem cadastros no sistema. Posso ajudar com suas tarefas, ocorrências e avisos.";
+        };
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "ADMIN_DENIED");
+        out.put("message", spoken);
+        out.put("spoken", spoken);
+        return out;
+    }
+
+    private Map<String, Object> startOccurrence(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
+        if (resolved.getOccurrenceId() == null) {
+            throw new IllegalArgumentException("Ocorrência não identificada.");
+        }
+        Occurrence occ = occurrenceService.transition(
+                resolved.getOccurrenceId(), OccurrenceStatus.EM_ATENDIMENTO, intent.getComment(), me);
+        String spoken = "Certo. Estou atendendo a ocorrência " + occ.getTitle() + ".";
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "OCCURRENCE");
+        out.put("entityId", occ.getId());
+        out.put("message", spoken);
+        out.put("spoken", spoken);
+        out.put("navigateTo", "/occurrences/" + occ.getId());
+        return out;
+    }
+
+    private Map<String, Object> closeOccurrence(AppUserPrincipal me, VoiceIntent intent, VoiceResolved resolved) {
+        if (resolved.getOccurrenceId() == null) {
+            throw new IllegalArgumentException("Ocorrência não identificada.");
+        }
+        Occurrence occ = occurrenceService.get(resolved.getOccurrenceId(), me);
+        OccurrenceStatus status = occ.getStatus();
+        if (status == OccurrenceStatus.ABERTA) {
+            String spoken = "A ocorrência ainda está aberta. Diga 'assumir ocorrência' antes de encerrar.";
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("entityType", "QUERY");
+            out.put("message", spoken);
+            out.put("spoken", spoken);
+            return out;
+        }
+        if (status == OccurrenceStatus.EM_ATENDIMENTO) {
+            occurrenceService.transition(resolved.getOccurrenceId(), OccurrenceStatus.AGUARDANDO_VALIDACAO, null, me);
+            status = OccurrenceStatus.AGUARDANDO_VALIDACAO;
+        }
+        if (status == OccurrenceStatus.AGUARDANDO_VALIDACAO) {
+            occ = occurrenceService.transition(resolved.getOccurrenceId(), OccurrenceStatus.ENCERRADA, intent.getComment(), me);
+        } else if (status == OccurrenceStatus.ENCERRADA || status == OccurrenceStatus.REJEITADA) {
+            String spoken = "Essa ocorrência já está " + (status == OccurrenceStatus.ENCERRADA ? "encerrada" : "rejeitada") + ".";
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("entityType", "OCCURRENCE");
+            out.put("entityId", occ.getId());
+            out.put("message", spoken);
+            out.put("spoken", spoken);
+            return out;
+        } else {
+            throw new IllegalArgumentException("Não posso encerrar a ocorrência neste status.");
+        }
+        String spokenDone = "Pronto. Encerrei a ocorrência " + occ.getTitle() + ".";
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "OCCURRENCE");
+        out.put("entityId", occ.getId());
+        out.put("message", spokenDone);
+        out.put("spoken", spokenDone);
+        out.put("navigateTo", "/occurrences/" + occ.getId());
+        return out;
+    }
+
+    private Map<String, Object> listMyTasks(AppUserPrincipal me, VoiceIntent intent) {
+        Long cid = tenantResolver.resolveListCompanyId(me, null);
+        Long bid = tenantResolver.branchFilterOrNull(me);
+        RoutineStatus status = null;
+        String requested = intent.getRequestedStatus();
+        if (requested != null && !"HOJE".equals(requested)) {
+            try {
+                status = RoutineStatus.valueOf(requested);
+            } catch (Exception ignored) {
+                status = null;
+            }
+        }
+        List<RoutineRun> runs = routineService.listRuns(cid, bid, status);
+        runs = runs.stream()
+                .filter(r -> me.userId().equals(r.getAssignedUserId()))
+                .toList();
+        if ("HOJE".equals(requested)) {
+            LocalDate today = LocalDate.now(VoiceDateTimeNormalizer.ZONE);
+            runs = runs.stream()
+                    .filter(r -> r.getDueAt() != null
+                            && r.getDueAt().atZone(VoiceDateTimeNormalizer.ZONE).toLocalDate().equals(today))
+                    .toList();
+        }
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (RoutineRun run : runs.stream().limit(20).toList()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", run.getId());
+            row.put("status", run.getStatus().name());
+            templateRepository.findById(run.getTemplateId()).ifPresent(t -> row.put("title", t.getTitle()));
+            items.add(row);
+        }
+        String statusLabel = requested == null ? "" : switch (requested) {
+            case "ATRASADA" -> " atrasada(s)";
+            case "PENDENTE" -> " pendente(s)";
+            case "HOJE" -> " para hoje";
+            default -> "";
+        };
+        String spoken;
+        if (items.isEmpty()) {
+            spoken = "Você não tem tarefas" + statusLabel + " no momento.";
+        } else {
+            StringBuilder sb = new StringBuilder("Você tem " + items.size() + " tarefa" + (items.size() > 1 ? "s" : "") + statusLabel + ".");
+            int n = Math.min(3, items.size());
+            for (int idx = 0; idx < n; idx++) {
+                Object ti = items.get(idx).get("title");
+                if (ti != null) {
+                    sb.append(idx == 0 ? " " : ", ").append(ti);
+                }
+            }
+            spoken = sb.toString();
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "ROUTINE_RUN_LIST");
+        out.put("items", items);
+        out.put("message", spoken);
+        out.put("spoken", spoken);
+        out.put("navigateTo", "/routines");
+        return out;
+    }
+
+    private Map<String, Object> openNotifications(AppUserPrincipal me) {
+        long unread = notificationRepository.countByRecipientUserIdAndReadAtIsNull(me.userId());
+        var latest = notificationRepository.findTop50ByRecipientUserIdOrderByCreatedAtDesc(me.userId());
+        String spoken;
+        if (unread == 0) {
+            spoken = "Você não tem avisos novos.";
+        } else {
+            spoken = "Você tem " + unread + " aviso" + (unread > 1 ? "s" : "") + " não lido" + (unread > 1 ? "s" : "") + ".";
+            if (!latest.isEmpty() && latest.get(0).getTitle() != null) {
+                spoken = spoken + " O mais recente: " + latest.get(0).getTitle() + ".";
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "NOTIFICATION_LIST");
+        out.put("unreadCount", unread);
+        out.put("message", spoken);
+        out.put("spoken", spoken);
+        out.put("navigateTo", "/notifications");
+        return out;
+    }
+
+    private Map<String, Object> summaryToday(AppUserPrincipal me) {
+        Long cid = tenantResolver.resolveListCompanyId(me, null);
+        Long bid = tenantResolver.branchFilterOrNull(me);
+        long pending = bid != null
+                ? runRepository.countByCompanyIdAndBranchIdAndStatus(cid, bid, RoutineStatus.PENDENTE)
+                : runRepository.countByCompanyIdAndStatus(cid, RoutineStatus.PENDENTE);
+        long overdue = bid != null
+                ? runRepository.countByCompanyIdAndBranchIdAndStatus(cid, bid, RoutineStatus.ATRASADA)
+                : runRepository.countByCompanyIdAndStatus(cid, RoutineStatus.ATRASADA);
+        long openOcc = bid != null
+                ? occurrenceRepository.countByCompanyIdAndBranchIdAndStatus(cid, bid, OccurrenceStatus.ABERTA)
+                : occurrenceRepository.countByCompanyIdAndStatus(cid, OccurrenceStatus.ABERTA);
+        long inProgressOcc = bid != null
+                ? occurrenceRepository.countByCompanyIdAndBranchIdAndStatus(cid, bid, OccurrenceStatus.EM_ATENDIMENTO)
+                : occurrenceRepository.countByCompanyIdAndStatus(cid, OccurrenceStatus.EM_ATENDIMENTO);
+        long unread = notificationRepository.countByRecipientUserIdAndReadAtIsNull(me.userId());
+        String scope = bid != null ? "na sua filial" : "na empresa";
+        String spoken = "Resumo de hoje " + scope + ": "
+                + pending + " tarefa" + (pending == 1 ? "" : "s") + " pendente" + (pending == 1 ? "" : "s") + ", "
+                + overdue + " atrasada" + (overdue == 1 ? "" : "s") + ", "
+                + openOcc + " ocorrência" + (openOcc == 1 ? "" : "s") + " aberta" + (openOcc == 1 ? "" : "s") + ", "
+                + inProgressOcc + " em atendimento"
+                + (unread > 0 ? ", e " + unread + " aviso" + (unread > 1 ? "s" : "") + " não lido" + (unread > 1 ? "s" : "") : "")
+                + ".";
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("entityType", "OPERATION_SUMMARY");
+        out.put("pendingTasks", pending);
+        out.put("overdueTasks", overdue);
+        out.put("openOccurrences", openOcc);
+        out.put("occurrencesInProgress", inProgressOcc);
+        out.put("unreadNotifications", unread);
+        out.put("message", spoken);
+        out.put("spoken", spoken);
+        return out;
+    }
+
     private Map<String, Object> help(AppUserPrincipal me) {
         String role = me == null ? "" : nvl(me.role(), "");
         String spoken = """
                 Sou a assistente do TorqMind Ops. Posso criar tarefas e ocorrências, iniciar, concluir ou rejeitar trabalhos, \
-                listar pendências e atrasos, consultar se alguém concluiu uma rotina, abrir análise de combustível e excluir uma rotina específica. \
+                assumir e encerrar chamados, listar pendências e atrasos, consultar se alguém concluiu uma rotina, \
+                ver avisos, resumir o dia e abrir análise de combustível. \
+                Para vendas, metas e comissões, use o TorqMind BI. \
                 Fale naturalmente em português. Se faltar algum detalhe, eu pergunto. \
+                Cadastro de usuários, filiais e configurações administrativas só pela tela de Gestão. \
                 Para excluir ou rejeitar, peço confirmação antes.""";
         if ("OPERATOR".equalsIgnoreCase(role)) {
             spoken = spoken + " Como funcionário, você vê e age nas tarefas da sua filial.";

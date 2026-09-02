@@ -33,6 +33,7 @@ public class VoiceDraftService {
     private final ObjectMapper objectMapper;
     private final com.torqmind.ops.application.task.TaskDetailService taskDetailService;
     private final com.torqmind.ops.application.company.CompanySettingsService companySettingsService;
+    private final VoicePhraseLearningService phraseLearningService;
 
     public VoiceDraftService(
             VoiceProperties properties,
@@ -43,7 +44,8 @@ public class VoiceDraftService {
             VoiceCommandExecutor executor,
             ObjectMapper objectMapper,
             com.torqmind.ops.application.task.TaskDetailService taskDetailService,
-            com.torqmind.ops.application.company.CompanySettingsService companySettingsService
+            com.torqmind.ops.application.company.CompanySettingsService companySettingsService,
+            VoicePhraseLearningService phraseLearningService
     ) {
         this.properties = properties;
         this.draftRepository = draftRepository;
@@ -54,6 +56,7 @@ public class VoiceDraftService {
         this.objectMapper = objectMapper;
         this.taskDetailService = taskDetailService;
         this.companySettingsService = companySettingsService;
+        this.phraseLearningService = phraseLearningService;
     }
 
     public Map<String, Object> status() {
@@ -102,6 +105,7 @@ public class VoiceDraftService {
         try {
             VoiceIntent intent = intentProvider.interpret(transcript, context);
             intent.setTranscript(transcript);
+            phraseLearningService.applyLearned(me, intent, transcript);
             return persistInterpreted(me, intent, context, correlationId);
         } catch (IllegalArgumentException | VoiceUnavailableException | VoiceRateLimitException | ForbiddenException ex) {
             throw ex;
@@ -133,6 +137,7 @@ public class VoiceDraftService {
         }
         VoiceIntent intent = readIntent(draft);
         if (transcript != null && !transcript.isBlank()) {
+            draft.setLastClarificationTranscript(transcript.trim());
             VoiceConversationResolver.applySpokenAnswer(intent, VoiceIntentSanitizer.sanitize(transcript.trim()));
         }
         if (selectedOptions != null) {
@@ -188,6 +193,7 @@ public class VoiceDraftService {
         draft.setConfirmedAt(Instant.now());
         draft.setUpdatedAt(Instant.now());
         draft.setResultJson(write(result));
+        phraseLearningService.recordSuccess(me, intent, draft.getTranscript(), draft.getLastClarificationTranscript());
         Object entityType = result.get("entityType");
         Object entityId = result.get("entityId");
         if (entityType != null) {
