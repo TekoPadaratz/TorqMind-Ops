@@ -28,15 +28,24 @@ public class VoicePhraseLearningService {
             "DELETE_TASK", "REJECT_TASK", "ADMIN_DENIED"
     );
 
+    private final VoiceProperties properties;
     private final VoicePhraseLearningRepository repository;
     private final ObjectMapper objectMapper;
 
-    public VoicePhraseLearningService(VoicePhraseLearningRepository repository, ObjectMapper objectMapper) {
+    public VoicePhraseLearningService(
+            VoiceProperties properties,
+            VoicePhraseLearningRepository repository,
+            ObjectMapper objectMapper
+    ) {
+        this.properties = properties;
         this.repository = repository;
         this.objectMapper = objectMapper;
     }
 
     public void applyLearned(AppUserPrincipal me, VoiceIntent intent, String transcript) {
+        if (!properties.isPhraseLearningEnabled()) {
+            return;
+        }
         if (me == null || me.companyId() == null || transcript == null || intent == null) {
             return;
         }
@@ -70,6 +79,9 @@ public class VoicePhraseLearningService {
             String originalTranscript,
             String clarificationTranscript
     ) {
+        if (!properties.isPhraseLearningEnabled()) {
+            return;
+        }
         if (me == null || me.companyId() == null || intent == null) {
             return;
         }

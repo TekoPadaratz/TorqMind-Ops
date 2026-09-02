@@ -16,6 +16,17 @@ import java.util.regex.Pattern;
  */
 public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
 
+    private final VoiceReadyPhraseCatalog readyPhrases;
+
+    public DeterministicVoiceIntentProvider(VoiceReadyPhraseCatalog readyPhrases) {
+        this.readyPhrases = readyPhrases;
+    }
+
+    /** Parser regex sem catálogo (testes legados). */
+    public DeterministicVoiceIntentProvider() {
+        this(null);
+    }
+
     private static final Pattern AFTER_COMMENT = Pattern.compile("coment[aá]rio[:\\s]+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern REJECT_REASON = Pattern.compile("porque\\s+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern OCC_DESC = Pattern.compile("informando que\\s+(.+)$", Pattern.CASE_INSENSITIVE);
@@ -48,6 +59,27 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
 
         if (looksLikeInjection(low)) {
             intent.getWarnings().add("Trechos de instrução foram ignorados.");
+        }
+
+        if (readyPhrases != null) {
+            var ready = readyPhrases.match(t);
+            if (ready.isPresent()) {
+                VoiceIntent matched = ready.get();
+                intent.setAction(matched.getAction());
+                intent.setTitle(matched.getTitle());
+                intent.setTaskReference(matched.getTaskReference());
+                intent.setComment(matched.getComment());
+                intent.setFuel(matched.getFuel());
+                intent.setTargetType(matched.getTargetType());
+                intent.setRecurrence(matched.getRecurrence());
+                intent.setRequestedStatus(matched.getRequestedStatus());
+                intent.setOccurrencePriority(matched.getOccurrencePriority());
+                intent.setBranchReference(matched.getBranchReference());
+                intent.setTargetUserReference(matched.getTargetUserReference());
+                intent.setRequiresConfirmation(matched.getRequiresConfirmation());
+                intent.setConfidence(matched.getConfidence());
+                return intent;
+            }
         }
 
         if (looksLikeAdmin(low)) {
@@ -103,7 +135,7 @@ public class DeterministicVoiceIntentProvider implements VoiceIntentProvider {
                 intent.setAction("START_TASK");
                 fillTaskRef(intent, t, context);
             }
-        } else if (containsAny(low, "conclua", "concluir", "finalize", "finalizar", "finaliza ")) {
+        } else if (containsAny(low, "conclua", "concluir", "finalize", "finalizar", "finaliza ", "marca como feita", "marca como feito", "dar baixa")) {
             intent.setAction("COMPLETE_TASK");
             fillTaskRef(intent, t, context);
         } else if (containsAny(low, "rejeite", "rejeitar")) {

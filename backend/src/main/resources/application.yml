@@ -76,6 +76,7 @@ app:
     rate-limit-window-seconds: ${VOICE_RATE_WINDOW_SECONDS:600}
     transcribe-timeout-ms: ${VOICE_TRANSCRIBE_TIMEOUT_MS:45000}
     intent-timeout-ms: ${VOICE_INTENT_TIMEOUT_MS:20000}
+    phrase-learning-enabled: ${VOICE_PHRASE_LEARNING_ENABLED:false}
 
 logging:
   level:

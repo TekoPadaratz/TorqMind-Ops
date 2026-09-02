@@ -39,6 +39,7 @@ services:
       VOICE_OPENAI_BASE_URL: ${VOICE_OPENAI_BASE_URL:-https://api.openai.com/v1}
       VOICE_TRANSCRIBE_MODEL: ${VOICE_TRANSCRIBE_MODEL:-whisper-1}
       VOICE_INTENT_MODEL: ${VOICE_INTENT_MODEL:-gpt-4o-mini}
+      VOICE_PHRASE_LEARNING_ENABLED: ${VOICE_PHRASE_LEARNING_ENABLED:-false}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://task.torqmind.com.br,http://task.torqmind.com.br,http://localhost:5173,http://127.0.0.1:5173}
     volumes:
       - storage:/app/storage

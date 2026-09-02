@@ -19,6 +19,7 @@ public class VoiceProperties {
     private int rateLimitWindowSeconds = 600;
     private int transcribeTimeoutMs = 45000;
     private int intentTimeoutMs = 20000;
+    private boolean phraseLearningEnabled = false;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -48,6 +49,8 @@ public class VoiceProperties {
     public void setTranscribeTimeoutMs(int transcribeTimeoutMs) { this.transcribeTimeoutMs = transcribeTimeoutMs; }
     public int getIntentTimeoutMs() { return intentTimeoutMs; }
     public void setIntentTimeoutMs(int intentTimeoutMs) { this.intentTimeoutMs = intentTimeoutMs; }
+    public boolean isPhraseLearningEnabled() { return phraseLearningEnabled; }
+    public void setPhraseLearningEnabled(boolean phraseLearningEnabled) { this.phraseLearningEnabled = phraseLearningEnabled; }
 
     public boolean hasOpenaiKey() {
         return openaiApiKey != null && !openaiApiKey.isBlank();

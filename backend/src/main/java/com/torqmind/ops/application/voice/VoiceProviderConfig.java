@@ -13,8 +13,8 @@ public class VoiceProviderConfig {
     }
 
     @Bean
-    public DeterministicVoiceIntentProvider deterministicVoiceIntentProvider() {
-        return new DeterministicVoiceIntentProvider();
+    public DeterministicVoiceIntentProvider deterministicVoiceIntentProvider(VoiceReadyPhraseCatalog readyPhrases) {
+        return new DeterministicVoiceIntentProvider(readyPhrases);
     }
 
     @Bean

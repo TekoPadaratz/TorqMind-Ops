@@ -50,16 +50,15 @@ Estados: ver `VOICE_COMMANDS.md`.
 | `SUMMARY_TODAY` | Resumo operacional do dia | Não | "Como está a operação hoje?", "Resumo do dia" |
 | `ADMIN_DENIED` | Recusa pedido administrativo | Não | "Cadastrar usuário", "Criar filial" → orienta usar Gestão |
 
-### Aprendizado de frases (V26)
+### Aprendizado de frases (V26) — **desligado por padrão**
 
-Após **confirmação bem-sucedida**, frases e apelidos podem ser gravados em `voice_phrase_learnings` (escopo **empresa**):
+Flag `app.voice.phrase-learning-enabled` / `VOICE_PHRASE_LEARNING_ENABLED` (default `false`).
 
-- **INTENT** — atalho de comando completo ("minhas coisas de hoje" → `LIST_MY_TASKS` + `HOJE`)
-- **SLOT** — apelido de entidade após desambiguação ("posto centro" → filial X)
+Quando ligado, grava em `voice_phrase_learnings` após confirmação. **Recomendado manter off** até validação em produção.
 
-**Safeguards:** nunca aprende `DELETE_TASK`, `REJECT_TASK`, `ADMIN_DENIED`; limite 300 entradas/empresa; aplicação só complementa intent (não furta `TenantResolver`).
+### Catálogo de conversas prontas
 
-Corpus de regressão: `backend/src/test/resources/voice/golden_phrases.json` + `VoiceGoldenPhrasesTest`.
+Arquivo curado `backend/src/main/resources/voice/ready_phrases.json` (~70 frases) — **não é aprendizado**; match exato antes do parser regex. Testes: `VoiceReadyPhraseCatalogTest`.
 
 ### Slots comuns
 
